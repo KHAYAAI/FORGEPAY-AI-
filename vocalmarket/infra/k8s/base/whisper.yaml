@@ -1,0 +1,81 @@
+---
+# Whisper requires a GPU node. Nodes in the gpu-whisper node group are
+# tainted with nvidia.com/gpu=present:NoSchedule so only GPU workloads land there.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: whisper
+spec:
+  replicas: 1  # Scaled to 0 in off-peak via KEDA in production overlay
+  selector:
+    matchLabels:
+      app: whisper
+  template:
+    metadata:
+      labels:
+        app: whisper
+    spec:
+      nodeSelector:
+        node-group: gpu-whisper
+        kubernetes.io/arch: amd64
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: whisper
+          image: fedirz/faster-whisper-server:latest-cuda
+          ports:
+            - containerPort: 9000
+          env:
+            - name: WHISPER__MODEL
+              value: large-v3
+            - name: WHISPER__LANGUAGE
+              value: en
+            - name: WHISPER__DEVICE
+              value: cuda
+          resources:
+            requests:
+              cpu: "2"
+              memory: "8Gi"
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "4"
+              memory: "12Gi"
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - name: model-cache
+              mountPath: /root/.cache/huggingface
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 9000
+            initialDelaySeconds: 60  # Model load time
+            periodSeconds: 10
+            failureThreshold: 10
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: whisper-model-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: whisper-model-pvc
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: gp3
+  resources:
+    requests:
+      storage: 20Gi  # large-v3 is ~3GB, leave room for model cache
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: whisper
+spec:
+  selector:
+    app: whisper
+  ports:
+    - port: 9000
+      targetPort: 9000

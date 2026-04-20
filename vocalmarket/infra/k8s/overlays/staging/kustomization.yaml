@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: vocalmarket-staging
+
+resources:
+  - ../../base
+
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: Deployment
+      labelSelector: "app in (voice, ai-orchestrator, api-gateway, enthusiast-api)"
+
+configMapGenerator:
+  - name: orchestrator-config
+    behavior: merge
+    literals:
+      - VOCALMARKET_AI_LAYER=enthusiast  # Staging stays on V1 until V2 is verified
+      - ENVIRONMENT=staging

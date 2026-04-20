@@ -1,0 +1,70 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-orchestrator
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ai-orchestrator
+  template:
+    metadata:
+      labels:
+        app: ai-orchestrator
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8002"
+    spec:
+      serviceAccountName: vocalmarket-sa
+      containers:
+        - name: ai-orchestrator
+          image: vocalmarket/ai-orchestrator:latest
+          ports:
+            - containerPort: 8002
+          envFrom:
+            - secretRef:
+                name: orchestrator-secret
+            - configMapRef:
+                name: orchestrator-config
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 15
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 30
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: orchestrator-config
+data:
+  VOCALMARKET_AI_LAYER: "enthusiast"  # Override in production overlay
+  ORCHESTRATOR_OTEL_ENDPOINT: "http://otel-collector:4317"
+  ORCHESTRATOR_ENTHUSIAST_BASE_URL: "http://enthusiast-api:8000"
+  ORCHESTRATOR_MEMORY_DB_URL: "postgresql+asyncpg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)"
+  ORCHESTRATOR_REDIS_URL: "redis://redis:6379/1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-orchestrator
+spec:
+  selector:
+    app: ai-orchestrator
+  ports:
+    - port: 8002
+      targetPort: 8002

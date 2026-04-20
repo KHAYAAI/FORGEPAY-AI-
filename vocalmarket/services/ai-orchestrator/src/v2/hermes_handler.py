@@ -1,81 +1,77 @@
 """
-V2 handler: Hermes agent orchestrates with Enthusiast + Medusa + ForgePay as tools.
-
-Hermes maintains long-term user memory across sessions. On each turn it:
-  1. Loads the user's semantic memory (preferences, history) from pgvector
-  2. Injects vertical context + memory into the system prompt
-  3. Runs the Hermes LLM with the full tool set
-  4. Executes any tool calls (Enthusiast, Medusa, ForgePay)
-  5. Writes updated memory back to the store
+V2 handler: bootstraps the HermesAgent and delegates each turn to it.
 """
 
-from dataclasses import dataclass
+from __future__ import annotations
 
 import httpx
-from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_openai import ChatOpenAI  # Compatible with vLLM's OpenAI endpoint
+from langchain_openai import ChatOpenAI
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from vocalmarket.ai.hermes.agent import HermesAgent, HermesResponse
+from vocalmarket.ai.hermes.memory.store import EmbeddingProvider, UserMemoryStore
+from vocalmarket.ai.hermes.skills.registry import SkillRegistry
 from vocalmarket.shared.config.feature_flags import Vertical
-from vocalmarket.shared.config.verticals import vertical_settings
 from ..config import settings
-from ..tools.enthusiast_tools import CheckInventoryTool, PlaceOrderTool, SearchProductsTool
-from .memory import UserMemoryStore
-
-SYSTEM_PROMPT = """You are VocalMarket AI, a voice-first shopping assistant.
-
-Vertical: {vertical}
-User preferences and history:
-{user_memory}
-
-Guidelines:
-- Be concise — responses will be read aloud via TTS.
-- Always check inventory before confirming an order.
-- Prefer curated/preferred suppliers when quality and price are comparable.
-- For healthcare: never recommend prescription drugs without prescription verification.
-- For B2B: always confirm quantities and quote validity before placing orders.
-"""
-
-
-@dataclass
-class HermesResult:
-    text: str
-    conversation_id: str
-    products: list[dict] | None = None
-    suggested_actions: list[dict] | None = None
 
 
 class HermesHandler:
     """
-    V2 AI handler. Hermes is the conversation brain; Enthusiast/Medusa/ForgePay
-    are tools it calls to take grounded actions.
+    Singleton wrapper around HermesAgent.
+    Owns all long-lived HTTP clients and the memory store connection pool.
     """
 
     def __init__(self) -> None:
-        self._memory_store = UserMemoryStore(db_url=settings.memory_db_url)
+        self._embedder = EmbeddingProvider(
+            base_url=settings.hermes_base_url or "https://api.openai.com",
+            api_key=settings.hermes_api_key,
+            model="text-embedding-3-small",
+        )
+        self._memory = UserMemoryStore(
+            db_url=settings.memory_db_url,
+            embedder=self._embedder,
+        )
+        engine = create_async_engine(settings.memory_db_url)
+        session_factory = async_sessionmaker(engine, expire_on_commit=False)
+        self._skill_registry = SkillRegistry(session_factory)
 
-        # Shared HTTP clients passed into tools
-        self._enthusiast_http = httpx.AsyncClient(
-            base_url=settings.enthusiast_base_url,
-            headers={"Authorization": f"Token {settings.enthusiast_api_key}"},
-            timeout=30.0,
-        )
-        self._medusa_http = httpx.AsyncClient(
-            base_url="http://medusa:9000",
-            timeout=30.0,
-        )
-        self._forgepay_http = httpx.AsyncClient(
-            base_url="http://payments:8001",
-            timeout=30.0,
-        )
-
+        # Primary LLM — Hermes-3 via vLLM (OpenAI-compatible endpoint)
         self._llm = ChatOpenAI(
             model=settings.hermes_model,
             base_url=settings.hermes_base_url or None,
             api_key=settings.hermes_api_key or "none",
             temperature=0.3,
-            streaming=True,
+            streaming=False,
         )
+        # Smaller model for fact extraction / consolidation (cheaper)
+        self._extract_llm = ChatOpenAI(
+            model="gpt-4o-mini",
+            api_key=settings.hermes_api_key or "none",
+            temperature=0.0,
+        )
+
+        self._enthusiast_http = httpx.AsyncClient(
+            base_url=settings.enthusiast_base_url,
+            headers={"Authorization": f"Token {settings.enthusiast_api_key}"},
+            timeout=30.0,
+        )
+        self._medusa_http = httpx.AsyncClient(base_url="http://medusa:9000", timeout=30.0)
+        self._forgepay_http = httpx.AsyncClient(base_url="http://payments:8001", timeout=30.0)
+
+        self._agent = HermesAgent(
+            memory_store=self._memory,
+            embedder=self._embedder,
+            skill_registry=self._skill_registry,
+            llm=self._llm,
+            extract_llm=self._extract_llm,
+            enthusiast_http=self._enthusiast_http,
+            medusa_http=self._medusa_http,
+            forgepay_http=self._forgepay_http,
+        )
+
+    async def initialise(self) -> None:
+        """Must be called once at startup to create DB schema."""
+        await self._memory.initialise()
 
     async def chat(
         self,
@@ -83,63 +79,12 @@ class HermesHandler:
         conversation_id: str,
         message: str,
         vertical: Vertical,
-    ) -> HermesResult:
-        # 1. Load user memory
-        memory_summary = await self._memory_store.retrieve_summary(user_id, vertical)
-
-        # 2. Build vertical-specific tool set
-        vertical_cfg = getattr(vertical_settings, vertical.value)()
-        tools = [
-            SearchProductsTool(
-                vertical_config=vertical_cfg,
-                enthusiast_client=self._enthusiast_http,
-            ),
-            CheckInventoryTool(medusa_client=self._medusa_http),
-            PlaceOrderTool(
-                medusa_client=self._medusa_http,
-                forgepay_client=self._forgepay_http,
-            ),
-        ]
-
-        # 3. Build prompt with memory injection
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", SYSTEM_PROMPT),
-            MessagesPlaceholder("chat_history"),
-            ("human", "{input}"),
-            MessagesPlaceholder("agent_scratchpad"),
-        ])
-
-        chat_history = await self._memory_store.get_recent_messages(conversation_id, limit=10)
-
-        # 4. Run Hermes
-        agent = create_tool_calling_agent(self._llm, tools, prompt)
-        executor = AgentExecutor(agent=agent, tools=tools, max_iterations=5)
-
-        result = await executor.ainvoke({
-            "input": message,
-            "vertical": vertical.value,
-            "user_memory": memory_summary,
-            "chat_history": chat_history,
-        })
-
-        response_text = result["output"]
-
-        # 5. Update long-term memory
-        await self._memory_store.record_turn(
-            user_id=user_id,
-            conversation_id=conversation_id,
-            vertical=vertical,
-            user_message=message,
-            assistant_message=response_text,
-        )
-
-        return HermesResult(
-            text=response_text,
-            conversation_id=conversation_id,
-        )
+    ) -> HermesResponse:
+        return await self._agent.chat(user_id, conversation_id, message, vertical)
 
     async def aclose(self) -> None:
+        await self._memory.aclose()
+        await self._embedder.aclose()
         await self._enthusiast_http.aclose()
         await self._medusa_http.aclose()
         await self._forgepay_http.aclose()
-        await self._memory_store.aclose()

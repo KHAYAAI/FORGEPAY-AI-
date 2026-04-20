@@ -1,0 +1,35 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: vocalmarket-prod
+
+resources:
+  - ../../base
+
+# Production image tags pinned via CI pipeline
+images:
+  - name: vocalmarket/ai-orchestrator
+    newTag: "1.0.0"
+  - name: vocalmarket/voice
+    newTag: "1.0.0"
+  - name: vocalmarket/api-gateway
+    newTag: "1.0.0"
+  - name: vocalmarket/enthusiast-api
+    newTag: "1.0.0"
+
+patches:
+  # Scale up for production load
+  - path: patches/replicas.yaml
+  # Production resource limits (larger)
+  - path: patches/resources.yaml
+  # Activate V2 hybrid AI layer in production
+  - path: patches/ai-layer.yaml
+  # AWS af-south-1 specific node selectors
+  - path: patches/node-affinity.yaml
+
+configMapGenerator:
+  - name: orchestrator-config
+    behavior: merge
+    literals:
+      - VOCALMARKET_AI_LAYER=hybrid
+      - ENVIRONMENT=production

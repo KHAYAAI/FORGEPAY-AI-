@@ -1,0 +1,56 @@
+---
+# Pin all non-GPU workloads to the general-purpose node group in af-south-1
+# (AWS Cape Town region — only 3 AZs: af-south-1a, af-south-1b, af-south-1c)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-orchestrator
+spec:
+  template:
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-group
+                    operator: In
+                    values: [general]
+                  - key: topology.kubernetes.io/region
+                    operator: In
+                    values: [af-south-1]
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: ai-orchestrator
+                topologyKey: topology.kubernetes.io/zone
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: voice
+spec:
+  template:
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: node-group
+                    operator: In
+                    values: [general]
+                  - key: topology.kubernetes.io/region
+                    operator: In
+                    values: [af-south-1]
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: voice
+                topologyKey: topology.kubernetes.io/zone

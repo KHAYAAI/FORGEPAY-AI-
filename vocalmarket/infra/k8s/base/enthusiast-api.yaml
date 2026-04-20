@@ -1,0 +1,81 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: enthusiast-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: enthusiast-api
+  template:
+    metadata:
+      labels:
+        app: enthusiast-api
+    spec:
+      initContainers:
+        - name: migrate
+          image: vocalmarket/enthusiast-api:latest
+          command: ["./manage.py", "migrate", "--noinput"]
+          envFrom:
+            - secretRef:
+                name: enthusiast-secret
+            - configMapRef:
+                name: enthusiast-config
+      containers:
+        - name: api
+          image: vocalmarket/enthusiast-api:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: enthusiast-secret
+            - configMapRef:
+                name: enthusiast-config
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "4Gi"
+          readinessProbe:
+            httpGet:
+              path: /api/health/
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 5
+        - name: worker
+          image: vocalmarket/enthusiast-api:latest
+          command: ["celery", "-A", "pecl.celery", "worker", "--loglevel=info", "--concurrency=4"]
+          envFrom:
+            - secretRef:
+                name: enthusiast-secret
+            - configMapRef:
+                name: enthusiast-config
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: enthusiast-config
+data:
+  DJANGO_SETTINGS_MODULE: "pecl.settings"
+  ALLOWED_HOSTS: "*"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: enthusiast-api
+spec:
+  selector:
+    app: enthusiast-api
+  ports:
+    - port: 8000
+      targetPort: 8000
