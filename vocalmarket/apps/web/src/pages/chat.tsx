@@ -3,6 +3,7 @@
  * Route: /chat/:vertical
  */
 
+import { useRef } from "react";
 import { useParams } from "react-router-dom";
 import type { Vertical } from "../../shared/types/voice";
 import { VoiceSession } from "../components/voice/VoiceSession";
@@ -16,7 +17,8 @@ const VERTICAL_LABELS: Record<Vertical, string> = {
 export default function ChatPage() {
   const { vertical = "grocery" } = useParams<{ vertical: Vertical }>();
   const userId = localStorage.getItem("userId") ?? "anonymous";
-  const conversationId = `${userId}-${vertical}-${Date.now()}`;
+  const conversationIdRef = useRef(`${userId}-${vertical}-${Date.now()}`);
+  const conversationId = conversationIdRef.current;
 
   return (
     <div className="flex h-screen flex-col bg-white">

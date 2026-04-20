@@ -8,6 +8,8 @@ name: vocalmarket
 #   ai-orchestrator — Feature-flagged AI routing (V1: Enthusiast | V2: Hermes)
 #   api-gateway     — Single ingress for mobile/web clients
 #   whisper         — Self-hosted faster-whisper-server (STT)
+#   payments        — ForgePay + x402 payment service
+#   medusa          — Medusa.js commerce engine
 #   otel-collector  — OpenTelemetry collector
 
 services:
@@ -95,6 +97,43 @@ services:
       - voice
       - ai-orchestrator
       - api
+    restart: unless-stopped
+
+  # ─── Payments ──────────────────────────────────────────────────────────────
+  payments:
+    build:
+      context: ./vocalmarket/services/payments
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - FORGEPAY_API_KEY=${FORGEPAY_API_KEY}
+      - FORGEPAY_WEBHOOK_SECRET=${FORGEPAY_WEBHOOK_SECRET}
+      - FORGEPAY_MEDUSA_URL=http://medusa:9000
+      - FORGEPAY_MEDUSA_API_KEY=${MEDUSA_API_KEY}
+    depends_on:
+      - medusa
+    restart: unless-stopped
+
+  # ─── Commerce Engine ────────────────────────────────────────────────────────
+  medusa:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install --production && npx medusa start"
+    ports:
+      - "9000:9000"
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-postgres}
+      - REDIS_URL=redis://redis:6379/2
+      - JWT_SECRET=${JWT_SECRET}
+      - COOKIE_SECRET=${COOKIE_SECRET:-change-me-in-production}
+      - MEDUSA_ADMIN_CORS=${MEDUSA_ADMIN_CORS:-http://localhost:7001}
+      - STORE_CORS=${STORE_CORS:-http://localhost:8080}
+    volumes:
+      - ./vocalmarket/services/commerce:/app
+    depends_on:
+      - postgres
+      - redis
     restart: unless-stopped
 
   # ─── Observability ─────────────────────────────────────────────────────────

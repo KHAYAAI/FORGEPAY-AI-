@@ -57,9 +57,14 @@ export function VoiceSession({ userId, vertical, conversationId }: VoiceSessionP
       onError: (msg) => console.error("Voice error:", msg),
     });
     clientRef.current = client;
-    client.connect();
+    let mounted = true;
+    (async () => {
+      await client.connect();
+      if (!mounted) client.disconnect();
+    })();
 
     return () => {
+      mounted = false;
       client.disconnect();
     };
   }, [userId, vertical, conversationId]);

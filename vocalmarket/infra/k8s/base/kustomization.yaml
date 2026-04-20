@@ -5,6 +5,8 @@ namespace: vocalmarket
 
 resources:
   - namespace.yaml
+  - serviceaccount.yaml
+  - secrets.yaml
   - postgres.yaml
   - redis.yaml
   - enthusiast-api.yaml

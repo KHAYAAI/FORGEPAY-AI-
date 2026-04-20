@@ -8,8 +8,8 @@ RUN pip install poetry==1.8.3 && \
 COPY pyproject.toml poetry.lock* ./
 RUN poetry install --no-dev --no-interaction --no-ansi
 
-COPY src/ ./vocalmarket/services/api-gateway/src/
+COPY src/ ./vocalmarket/services/ai_orchestrator/src/
 COPY ../../shared/ ./vocalmarket/shared/
 
-EXPOSE 8000
-CMD ["uvicorn", "vocalmarket.services.api-gateway.src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE 8002
+CMD ["uvicorn", "vocalmarket.services.ai_orchestrator.src.main:app", "--host", "0.0.0.0", "--port", "8002"]

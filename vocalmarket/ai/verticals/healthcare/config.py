@@ -6,6 +6,7 @@ Extra tools: prescription verification, appointment booking.
 """
 
 from ..base import BaseVertical
+from .prescription_store import get_prescription_store
 
 
 class HealthcareVertical(BaseVertical):
@@ -28,11 +29,11 @@ Rules you MUST follow without exception:
 
     async def pre_order_compliance_check(self, order_items: list[dict], user_id: str) -> tuple[bool, str]:
         """Block prescription items if no verified prescription exists."""
+        store = await get_prescription_store()
         for item in order_items:
             if item.get("requires_prescription"):
-                # TODO: check prescription store
-                return False, (
-                    "This item requires a valid prescription. "
-                    "Please upload your prescription or contact your healthcare provider."
-                )
+                sku = item.get("sku") or item.get("product_id", "")
+                result = await store.verify_for_product(user_id, sku)
+                if not result.is_valid:
+                    return False, result.reason
         return True, ""

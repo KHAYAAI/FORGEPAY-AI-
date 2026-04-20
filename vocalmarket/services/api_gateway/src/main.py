@@ -2,14 +2,16 @@
 API Gateway for VocalMarket AI.
 
 Single ingress for all client traffic. Handles:
-  - JWT authentication (issues tokens via Enthusiast's /api/auth/)
+  - JWT authentication (local PyJWT verification + fallback to Enthusiast token)
   - Vertical routing (path prefix /v1/{vertical}/...)
-  - Rate limiting (Redis sliding window)
   - Request tracing (OpenTelemetry)
   - Upstream proxy to voice service and AI orchestrator
 """
 
+from __future__ import annotations
+
 import httpx
+import jwt
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -21,24 +23,36 @@ from pydantic_settings import BaseSettings
 
 class GatewaySettings(BaseSettings):
     voice_service_url: str = "http://voice:8003"
-    orchestrator_url: str = "http://ai-orchestrator:8002"
+    orchestrator_url: str = "http://ai_orchestrator:8002"
     enthusiast_url: str = "http://api:8000"
     redis_url: str = "redis://redis:6379/0"
-    jwt_secret: str = "change-me-in-production"
-    rate_limit_per_minute: int = 60
+    # Required — no default. Service refuses to start if unset.
+    jwt_secret: str = ""
+    jwt_algorithm: str = "HS256"
+    # Comma-separated allowed CORS origins. Production MUST set this explicitly.
+    allowed_origins: str = ""
 
     class Config:
         env_prefix = "GATEWAY_"
 
+    def get_allowed_origins(self) -> list[str]:
+        return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
+
 
 _settings = GatewaySettings()
+
+if not _settings.jwt_secret:
+    raise RuntimeError(
+        "GATEWAY_JWT_SECRET must be set — refusing to start without a JWT secret"
+    )
 
 app = FastAPI(title="VocalMarket API Gateway")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_settings.get_allowed_origins(),  # explicit whitelist — no wildcards
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Vertical"],
 )
 FastAPIInstrumentor.instrument_app(app)
 
@@ -47,9 +61,29 @@ _upstream = httpx.AsyncClient(timeout=60.0)
 
 
 async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(_bearer)) -> dict:
-    """Validates JWT or Enthusiast token. Returns user claims."""
+    """
+    Verify an incoming token.
+
+    1. Tries local JWT verification (fast, no network).
+    2. Falls back to Enthusiast DRF token endpoint for service-account tokens.
+    """
     token = credentials.credentials
-    # Validate against Enthusiast's token endpoint
+
+    # Local JWT path (preferred for web/mobile clients)
+    try:
+        payload = jwt.decode(
+            token,
+            _settings.jwt_secret,
+            algorithms=[_settings.jwt_algorithm],
+            options={"require": ["exp", "sub"]},
+        )
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
+    except jwt.InvalidTokenError:
+        pass  # Not a JWT — try Enthusiast DRF token fallback
+
+    # Fallback: Enthusiast DRF Token (service accounts, CLI)
     resp = await _upstream.get(
         f"{_settings.enthusiast_url}/api/users/me/",
         headers={"Authorization": f"Token {token}"},
@@ -84,7 +118,6 @@ async def proxy_to_orchestrator(
     request: Request,
     user: dict = Depends(verify_token),
 ):
-    """Proxies commerce/chat requests to the AI Orchestrator."""
     body = await request.body()
     resp = await _upstream.request(
         method=request.method,
@@ -92,7 +125,7 @@ async def proxy_to_orchestrator(
         content=body,
         headers={
             "Content-Type": request.headers.get("Content-Type", "application/json"),
-            "X-User-Id": str(user.get("id", "")),
+            "X-User-Id": str(user.get("id", user.get("sub", ""))),
             "X-Vertical": vertical,
         },
     )

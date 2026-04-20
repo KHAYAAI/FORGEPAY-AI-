@@ -27,6 +27,24 @@ spec:
                 name: orchestrator-secret
             - configMapRef:
                 name: orchestrator-config
+          env:
+            - name: _POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
+            - name: _POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: _POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_DB
+            - name: ORCHESTRATOR_MEMORY_DB_URL
+              value: "postgresql+asyncpg://$(_POSTGRES_USER):$(_POSTGRES_PASSWORD)@postgres:5432/$(_POSTGRES_DB)"
           resources:
             requests:
               cpu: "500m"
@@ -55,7 +73,7 @@ data:
   VOCALMARKET_AI_LAYER: "enthusiast"  # Override in production overlay
   ORCHESTRATOR_OTEL_ENDPOINT: "http://otel-collector:4317"
   ORCHESTRATOR_ENTHUSIAST_BASE_URL: "http://enthusiast-api:8000"
-  ORCHESTRATOR_MEMORY_DB_URL: "postgresql+asyncpg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)"
+  # ORCHESTRATOR_MEMORY_DB_URL is injected via Deployment env (secretKeyRef)
   ORCHESTRATOR_REDIS_URL: "redis://redis:6379/1"
 ---
 apiVersion: v1

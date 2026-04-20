@@ -76,7 +76,8 @@ metadata:
     kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/certificate-arn: "$(ACM_CERT_ARN)"
+    # Set via production overlay: alb.ingress.kubernetes.io/certificate-arn
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:af-south-1:ACCOUNT_ID:certificate/CERT_ID"
     # Keep WebSocket connections alive for voice sessions
     alb.ingress.kubernetes.io/target-group-attributes: "stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=300"
 spec:

@@ -9,6 +9,10 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.33"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
   backend "s3" {
     bucket  = "vocalmarket-tfstate"
@@ -179,8 +183,9 @@ resource "aws_db_parameter_group" "postgres16" {
 
   parameter {
     name  = "shared_preload_libraries"
-    value = "pg_stat_statements,pgvector"
+    value = "pg_stat_statements"
   }
+  # pgvector is not a shared library — install it via: CREATE EXTENSION IF NOT EXISTS vector;
 }
 
 resource "random_password" "db_password" {
@@ -220,9 +225,9 @@ resource "aws_secretsmanager_secret" "postgres" {
 resource "aws_secretsmanager_secret_version" "postgres" {
   secret_id = aws_secretsmanager_secret.postgres.id
   secret_string = jsonencode({
-    user     = aws_db_instance.postgres.username
+    username = aws_db_instance.postgres.username
     password = random_password.db_password.result
-    db       = aws_db_instance.postgres.db_name
+    database = aws_db_instance.postgres.db_name
     host     = aws_db_instance.postgres.address
   })
 }

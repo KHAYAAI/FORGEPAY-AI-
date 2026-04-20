@@ -16,6 +16,7 @@ On every conversation turn:
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import datetime
 from enum import Enum
@@ -317,7 +318,6 @@ class UserMemoryStore:
 
 # ── Supporting types ─────────────────────────────────────────────────────────
 
-import asyncio
 from dataclasses import dataclass, field
 
 
