@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "vocalmarket-voice"
+version = "0.1.0"
+description = "VocalMarket Voice Service — Whisper STT + ElevenLabs TTS"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.115"
+uvicorn = { extras = ["standard"], version = "^0.32" }
+httpx = "^0.28"
+pydantic-settings = "^2.6"
+websockets = "^13.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

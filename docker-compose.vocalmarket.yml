@@ -1,0 +1,111 @@
+name: vocalmarket
+
+# Extends the base Enthusiast stack with VocalMarket-specific services.
+# Run: docker compose -f docker-compose.yml -f docker-compose.vocalmarket.yml up
+#
+# Services added:
+#   voice           — Whisper STT + ElevenLabs TTS WebSocket service
+#   ai-orchestrator — Feature-flagged AI routing (V1: Enthusiast | V2: Hermes)
+#   api-gateway     — Single ingress for mobile/web clients
+#   whisper         — Self-hosted faster-whisper-server (STT)
+#   otel-collector  — OpenTelemetry collector
+
+services:
+  # ─── Voice Processing ──────────────────────────────────────────────────────
+  voice:
+    build:
+      context: ./vocalmarket/services/voice
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - VOICE_WHISPER_BASE_URL=http://whisper:9000
+      - VOICE_ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - VOICE_VOICE_ID_ZA_ENGLISH=${ELEVENLABS_VOICE_ID_ZA:-21m00Tcm4TlvDq8ikWAM}
+    depends_on:
+      - whisper
+      - ai-orchestrator
+    restart: unless-stopped
+
+  whisper:
+    image: fedirz/faster-whisper-server:latest-cuda
+    ports:
+      - "9000:9000"
+    environment:
+      - WHISPER__MODEL=large-v3
+      - WHISPER__LANGUAGE=en
+    volumes:
+      - whisper-models:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  # ─── AI Orchestrator ───────────────────────────────────────────────────────
+  ai-orchestrator:
+    build:
+      context: ./vocalmarket/services/ai-orchestrator
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      # Feature flag: "enthusiast" for V1, "hybrid" for V2
+      - VOCALMARKET_AI_LAYER=${VOCALMARKET_AI_LAYER:-enthusiast}
+      - ORCHESTRATOR_ENTHUSIAST_BASE_URL=http://api:8000
+      - ORCHESTRATOR_ENTHUSIAST_API_KEY=${ENTHUSIAST_API_KEY}
+      - ORCHESTRATOR_MEMORY_DB_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-postgres}
+      - ORCHESTRATOR_REDIS_URL=redis://redis:6379/1
+      # V2 Hermes settings (only used when AI_LAYER=hybrid)
+      - ORCHESTRATOR_HERMES_MODEL=${HERMES_MODEL:-NousResearch/Hermes-3-Llama-3.1-8B}
+      - ORCHESTRATOR_HERMES_BASE_URL=${HERMES_BASE_URL:-}
+      - ORCHESTRATOR_HERMES_API_KEY=${HERMES_API_KEY:-}
+      # Vertical DataSet mappings
+      - VOCALMARKET_GROCERY_DATA_SET_ID=${GROCERY_DATA_SET_ID}
+      - VOCALMARKET_GROCERY_PRODUCT_SEARCH_AGENT_ID=${GROCERY_PRODUCT_SEARCH_AGENT_ID}
+      - VOCALMARKET_GROCERY_ORDER_INTAKE_AGENT_ID=${GROCERY_ORDER_INTAKE_AGENT_ID}
+      - VOCALMARKET_B2B_DATA_SET_ID=${B2B_DATA_SET_ID}
+      - VOCALMARKET_HEALTHCARE_DATA_SET_ID=${HEALTHCARE_DATA_SET_ID}
+      # OpenTelemetry
+      - ORCHESTRATOR_OTEL_ENDPOINT=http://otel-collector:4317
+    depends_on:
+      - postgres
+      - redis
+      - api
+    restart: unless-stopped
+
+  # ─── API Gateway ───────────────────────────────────────────────────────────
+  api-gateway:
+    build:
+      context: ./vocalmarket/services/api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "80:8000"
+      - "443:8443"
+    environment:
+      - GATEWAY_VOICE_SERVICE_URL=http://voice:8003
+      - GATEWAY_ORCHESTRATOR_URL=http://ai-orchestrator:8002
+      - GATEWAY_ENTHUSIAST_URL=http://api:8000
+      - GATEWAY_REDIS_URL=redis://redis:6379/0
+      - GATEWAY_JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - voice
+      - ai-orchestrator
+      - api
+    restart: unless-stopped
+
+  # ─── Observability ─────────────────────────────────────────────────────────
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    volumes:
+      - ./vocalmarket/infra/otel/collector.yaml:/etc/otelcol/config.yaml
+    ports:
+      - "4317:4317"   # gRPC
+      - "4318:4318"   # HTTP
+    restart: unless-stopped
+
+volumes:
+  whisper-models:

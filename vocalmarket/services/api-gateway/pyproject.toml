@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "vocalmarket-api-gateway"
+version = "0.1.0"
+description = "VocalMarket API Gateway — auth, routing, rate limiting"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.115"
+uvicorn = { extras = ["standard"], version = "^0.32" }
+httpx = "^0.28"
+pydantic-settings = "^2.6"
+opentelemetry-sdk = "^1.28"
+opentelemetry-instrumentation-fastapi = "^0.49b0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
