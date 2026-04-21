@@ -42,6 +42,7 @@ class FactType(str, Enum):
     CONTACT = "contact"
     CONSTRAINT = "constraint"
     SUMMARY = "summary"
+    SUPPLIER = "supplier"  # B2B: preferred suppliers, experiences, contract notes
 
 
 class Base(DeclarativeBase):

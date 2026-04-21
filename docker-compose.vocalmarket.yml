@@ -10,6 +10,7 @@ name: vocalmarket
 #   whisper         — Self-hosted faster-whisper-server (STT)
 #   payments        — ForgePay + x402 payment service
 #   medusa          — Medusa.js commerce engine
+#   intelligence    — Supplier intelligence store (the data moat)
 #   otel-collector  — OpenTelemetry collector
 
 services:
@@ -97,6 +98,19 @@ services:
       - voice
       - ai-orchestrator
       - api
+    restart: unless-stopped
+
+  # ─── Supplier Intelligence ─────────────────────────────────────────────────
+  intelligence:
+    build:
+      context: ./vocalmarket/services/intelligence
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      - INTELLIGENCE_DB_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-postgres}
+    depends_on:
+      - postgres
     restart: unless-stopped
 
   # ─── Payments ──────────────────────────────────────────────────────────────

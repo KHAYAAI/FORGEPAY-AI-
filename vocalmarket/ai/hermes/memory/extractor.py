@@ -25,14 +25,20 @@ remembered for future sessions. Be precise and brief.
 Return a JSON array of facts. Each fact:
 {
   "content": "<concise statement in third person, e.g. 'User is vegetarian'>",
-  "fact_type": "preference|order|health|contact|constraint",
+  "fact_type": "preference|order|health|contact|constraint|supplier",
   "importance": 0.1-1.0
 }
 
 Only extract facts that are:
 - Durable (not one-time, not about the current session)
-- About the USER specifically (not products or policies)
+- About the USER specifically (not products or general policies)
 - New or updates to known information
+
+For B2B procurement vertical, also extract "supplier" facts:
+- Preferred or avoided suppliers ("User prefers Acme Industries for steel components")
+- Supplier experiences ("User reported late delivery from XYZ Metals in March 2026")
+- Contract relationships ("User has a volume agreement with FastenerPro")
+- Capability notes ("User noted TechSupply cannot produce tolerances below 0.01mm")
 
 Return [] if nothing new to extract.
 """
