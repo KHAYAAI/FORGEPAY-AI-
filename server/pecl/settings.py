@@ -78,6 +78,7 @@ INSTALLED_APPS = [
     "agent",
     "account",
     "sync",
+    "organization",
     "drf_yasg",
     "django_filters",
 ]

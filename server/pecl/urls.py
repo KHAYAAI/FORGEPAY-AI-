@@ -40,4 +40,5 @@ urlpatterns = [
     path("", include("agent.execution.urls")),
     path("", include("account.urls")),
     path("", include("sync.urls")),
+    path("", include("organization.urls")),
 ]

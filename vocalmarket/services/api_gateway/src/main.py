@@ -31,6 +31,8 @@ class GatewaySettings(BaseSettings):
     jwt_algorithm: str = "HS256"
     # Comma-separated allowed CORS origins. Production MUST set this explicitly.
     allowed_origins: str = ""
+    # Service-account token for internal Enthusiast calls (org-member-context).
+    enthusiast_service_token: str = ""
 
     class Config:
         env_prefix = "GATEWAY_"
@@ -118,15 +120,22 @@ async def proxy_to_orchestrator(
     request: Request,
     user: dict = Depends(verify_token),
 ):
+    user_id = str(user.get("id", user.get("sub", "")))
     body = await request.body()
+
+    # Forward org context to orchestrator so B2B compliance checks work correctly.
+    # The org-member-context endpoint is internal (service-account only).
+    org_headers = await _fetch_org_context(user_id)
+
     resp = await _upstream.request(
         method=request.method,
         url=f"{_settings.orchestrator_url}/{path}",
         content=body,
         headers={
             "Content-Type": request.headers.get("Content-Type", "application/json"),
-            "X-User-Id": str(user.get("id", user.get("sub", ""))),
+            "X-User-Id": user_id,
             "X-Vertical": vertical,
+            **org_headers,
         },
     )
     return StreamingResponse(
@@ -134,6 +143,36 @@ async def proxy_to_orchestrator(
         status_code=resp.status_code,
         media_type=resp.headers.get("content-type"),
     )
+
+
+async def _fetch_org_context(user_id: str) -> dict[str, str]:
+    """
+    Fetch org membership context from Enthusiast and return as headers.
+    Non-fatal — if the call fails (user not in an org, service down) we return
+    empty headers and the orchestrator falls back to env-var defaults.
+    """
+    if not user_id:
+        return {}
+    try:
+        resp = await _upstream.get(
+            f"{_settings.enthusiast_url}/api/internal/org-member-context/{user_id}",
+            headers={"Authorization": f"Token {_settings.enthusiast_service_token}"},
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            headers = {}
+            if data.get("org_id"):
+                headers["X-Org-Id"] = str(data["org_id"])
+            if data.get("role"):
+                headers["X-Org-Role"] = data["role"]
+            if data.get("spend_limit_cents"):
+                headers["X-Spend-Limit-Cents"] = str(data["spend_limit_cents"])
+            if data.get("currency_code"):
+                headers["X-Currency"] = data["currency_code"]
+            return headers
+    except Exception:
+        pass
+    return {}
 
 
 @app.get("/health")

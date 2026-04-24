@@ -48,14 +48,46 @@ You are a B2B procurement assistant for business buyers.
     async def pre_order_compliance_check(
         self, order_items: list[dict], user_id: str
     ) -> tuple[bool, str]:
-        """Block orders that exceed the user's single-order spend limit."""
+        """
+        Block orders that exceed the user's effective spend limit.
+
+        Fetches the limit from the OrganizationService (Enthusiast /api/internal/
+        org-member-context/<user_id>). Falls back to B2B_DEFAULT_SPEND_LIMIT env
+        var if the service is unreachable (dev mode / non-org users).
+        """
         total = sum(item.get("unit_price", 0) * item.get("quantity", 1) for item in order_items)
-        # Sprint 2: replace with org profile lookup via OrganizationService
-        spend_limit = int(os.environ.get("B2B_DEFAULT_SPEND_LIMIT", "50000"))
+        spend_limit, currency = await self._get_spend_limit(user_id)
         if total > spend_limit:
             return False, (
-                f"This order total of R{total:,.0f} exceeds your single-order limit "
-                f"of R{spend_limit:,.0f}. "
+                f"This order total of {currency} {total / 100:,.2f} exceeds your "
+                f"single-order limit of {currency} {spend_limit / 100:,.2f}. "
                 "Please request approval from your procurement manager."
             )
         return True, ""
+
+    async def _get_spend_limit(self, user_id: str) -> tuple[int, str]:
+        """Fetch org-level spend limit and currency from Enthusiast. Returns (cents, currency)."""
+        enthusiast_base = os.environ.get("ORCHESTRATOR_ENTHUSIAST_BASE_URL", "http://api:8000")
+        service_token = os.environ.get("ORCHESTRATOR_ENTHUSIAST_API_KEY", "")
+        default_limit = int(os.environ.get("B2B_DEFAULT_SPEND_LIMIT", "5000000"))  # R50,000 in cents
+        default_currency = "ZAR"
+
+        if not service_token:
+            return default_limit, default_currency
+
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                resp = await client.get(
+                    f"{enthusiast_base}/api/internal/org-member-context/{user_id}",
+                    headers={"Authorization": f"Token {service_token}"},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    return (
+                        data.get("spend_limit_cents", default_limit),
+                        data.get("currency_code", default_currency),
+                    )
+        except httpx.RequestError:
+            pass
+
+        return default_limit, default_currency
