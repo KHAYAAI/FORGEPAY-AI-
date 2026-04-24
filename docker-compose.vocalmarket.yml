@@ -94,6 +94,8 @@ services:
       - GATEWAY_ENTHUSIAST_URL=http://api:8000
       - GATEWAY_REDIS_URL=redis://redis:6379/0
       - GATEWAY_JWT_SECRET=${JWT_SECRET}
+      - GATEWAY_ENTHUSIAST_SERVICE_TOKEN=${GATEWAY_ENTHUSIAST_SERVICE_TOKEN:-}
+      - GATEWAY_ALLOWED_ORIGINS=${GATEWAY_ALLOWED_ORIGINS:-}
     depends_on:
       - voice
       - ai-orchestrator
@@ -109,8 +111,25 @@ services:
       - "8004:8004"
     environment:
       - INTELLIGENCE_DB_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-postgres}
+      - INTELLIGENCE_OPENAI_API_KEY=${INTELLIGENCE_OPENAI_API_KEY:-}
+      - INTELLIGENCE_EMBEDDING_MODEL=${INTELLIGENCE_EMBEDDING_MODEL:-text-embedding-3-small}
     depends_on:
       - postgres
+    restart: unless-stopped
+
+  # ─── Analytics (Bloomberg data model) ──────────────────────────────────────
+  analytics:
+    build:
+      context: ./vocalmarket/services/analytics
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8005"
+    environment:
+      - ANALYTICS_DB_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-postgres}
+      - ANALYTICS_API_KEYS=${ANALYTICS_API_KEYS:-}
+    depends_on:
+      - postgres
+      - intelligence
     restart: unless-stopped
 
   # ─── Payments ──────────────────────────────────────────────────────────────

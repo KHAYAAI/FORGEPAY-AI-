@@ -29,9 +29,13 @@ class FeatureFlags(BaseSettings):
     b2b_procurement_ai_layer: AILayer | None = None
     healthcare_ai_layer: AILayer | None = None
 
-    # Voice
+    # Voice — per-market voice IDs. Defaults match GeographyConfig constants.
+    # Override via env to swap voices without a code deploy.
     voice_enabled: bool = True
-    elevenlabs_voice_id_za: str = "21m00Tcm4TlvDq8ikWAM"  # SA English accent
+    elevenlabs_voice_id_za: str = "21m00Tcm4TlvDq8ikWAM"   # SA English
+    elevenlabs_voice_id_in: str = "AZnzlk1XvdvUeBnXmlld"   # Indian English
+    elevenlabs_voice_id_us: str = "EXAVITQu4vr4xnSDxMaL"   # US English
+    elevenlabs_voice_id_eu: str = "ThT5KcBeYPX3keUQqHPh"   # EU English
 
     # Commerce
     preferred_supplier_boost: float = 1.5  # Ranking multiplier for curated suppliers
