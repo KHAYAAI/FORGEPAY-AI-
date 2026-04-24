@@ -30,17 +30,20 @@ You are a B2B procurement assistant for business buyers.
 - Surface pricing tiers and volume discounts proactively.
 - Support RFQ (Request for Quotation) workflows — help the user draft and send RFQs.
 - Track preferred supplier contracts — highlight when a non-contracted supplier is cheaper.
-- Use get_supplier_intelligence to recommend the most reliable supplier before placing orders.
+- Use discover_suppliers to find new suppliers by capability (certifications, location, MOQ, lead time).
+- Use get_supplier_intelligence to compare performance metrics for known suppliers.
 - Use record_delivery_outcome when a user confirms or complains about a delivery.
 """
 
     def extra_tools(self) -> list:
+        from vocalmarket.services.ai_orchestrator.src.tools.commerce_tools import SupplierDiscoveryTool
         from vocalmarket.services.ai_orchestrator.src.tools.intelligence_tools import (
             GetSupplierIntelligenceTool,
             RecordDeliveryOutcomeTool,
         )
         client = _get_intelligence_client()
         return [
+            SupplierDiscoveryTool(intelligence_client=client),
             GetSupplierIntelligenceTool(intelligence_client=client),
             RecordDeliveryOutcomeTool(intelligence_client=client),
         ]

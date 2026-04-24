@@ -19,22 +19,30 @@ avoid needing to store every raw data point.
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Any
 
+from pgvector.sqlalchemy import Vector
 from pydantic_settings import BaseSettings
-from sqlalchemy import Float, Integer, String, Text, select, text
+from sqlalchemy import Float, Integer, String, Text, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, mapped_column
 
 logger = logging.getLogger(__name__)
 
 
+CAPABILITY_VECTOR_DIM = 1536  # text-embedding-3-small dimensions
+
+
 class IntelligenceSettings(BaseSettings):
     intelligence_db_url: str = (
         "postgresql+asyncpg://postgres:postgres@postgres:5432/vocalmarket"
     )
+    # OpenAI embeddings for capability semantic search. Leave blank to disable pgvector search.
+    openai_api_key: str = ""
+    embedding_model: str = "text-embedding-3-small"
 
     class Config:
         env_prefix = "INTELLIGENCE_"
@@ -84,6 +92,38 @@ class SupplierProfile(Base):
     reliability_score: Any = mapped_column(Float, nullable=False, default=0.0)
     total_orders: Any = mapped_column(Integer, nullable=False, default=0)
     last_order_at: Any = mapped_column(Text, nullable=True)  # ISO timestamp
+
+
+class SupplierCapabilityProfile(Base):
+    """
+    Structured capability profile for each supplier.
+
+    Enables semantic discovery: "ISO 9001 certified fastener supplier, South Africa, MOQ < 500".
+    The capability_vector is a pgvector embedding of the concatenated capability text,
+    generated at onboarding and updated when the profile changes.
+
+    When INTELLIGENCE_OPENAI_API_KEY is unset, vector is NULL and keyword fallback is used.
+    """
+
+    __tablename__ = "supplier_capability_profiles"
+    __table_args__ = {"schema": "vocalmarket"}
+
+    supplier_id: Any = mapped_column(String(128), primary_key=True)
+    supplier_name: Any = mapped_column(String(256), nullable=False)
+    vertical: Any = mapped_column(String(64), index=True, nullable=False)
+    country_code: Any = mapped_column(String(2), nullable=False, default="ZA", index=True)
+    region: Any = mapped_column(String(128), nullable=False, default="")
+    description: Any = mapped_column(Text, nullable=False, default="")
+    # JSON-encoded list of strings, e.g. '["ISO_9001", "IATF_16949"]'
+    certifications: Any = mapped_column(Text, nullable=False, default="[]")
+    lead_time_days_min: Any = mapped_column(Integer, nullable=False, default=7)
+    lead_time_days_typical: Any = mapped_column(Integer, nullable=False, default=14)
+    moq: Any = mapped_column(Integer, nullable=False, default=1)
+    capacity_units_per_month: Any = mapped_column(Integer, nullable=True)
+    # pgvector column — NULL when embedding API is not configured
+    capability_vector: Any = mapped_column(Vector(CAPABILITY_VECTOR_DIM), nullable=True)
+    created_at: Any = mapped_column(Text, nullable=False)
+    updated_at: Any = mapped_column(Text, nullable=False)
 
 
 class TransactionRecord(Base):
@@ -145,6 +185,7 @@ class SupplierIntelligenceStore:
 
     async def initialise(self) -> None:
         async with self._engine.begin() as conn:
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             await conn.execute(text("CREATE SCHEMA IF NOT EXISTS vocalmarket"))
             await conn.run_sync(Base.metadata.create_all)
 
@@ -330,8 +371,189 @@ class SupplierIntelligenceStore:
         out["_max_n"] = float(max_n)
         return out
 
+    async def register_supplier(
+        self,
+        supplier_id: str,
+        supplier_name: str,
+        vertical: str,
+        description: str,
+        country_code: str = "ZA",
+        region: str = "",
+        certifications: list[str] | None = None,
+        lead_time_days_min: int = 7,
+        lead_time_days_typical: int = 14,
+        moq: int = 1,
+        capacity_units_per_month: int | None = None,
+    ) -> None:
+        """
+        Register or update a supplier capability profile.
+        Generates a pgvector embedding from the capability text if an OpenAI key is configured.
+        """
+        certs = certifications or []
+        capability_text = _build_capability_text(
+            supplier_name, vertical, country_code, region, description, certs,
+            lead_time_days_typical, moq,
+        )
+        embedding = await _embed_text(capability_text) if _settings.openai_api_key else None
+
+        async with self._session_factory() as session:
+            result = await session.execute(
+                select(SupplierCapabilityProfile).where(
+                    SupplierCapabilityProfile.supplier_id == supplier_id
+                )
+            )
+            profile = result.scalar_one_or_none()
+            now = _now()
+
+            if profile is None:
+                session.add(SupplierCapabilityProfile(
+                    supplier_id=supplier_id,
+                    supplier_name=supplier_name,
+                    vertical=vertical,
+                    country_code=country_code,
+                    region=region,
+                    description=description,
+                    certifications=json.dumps(certs),
+                    lead_time_days_min=lead_time_days_min,
+                    lead_time_days_typical=lead_time_days_typical,
+                    moq=moq,
+                    capacity_units_per_month=capacity_units_per_month,
+                    capability_vector=embedding,
+                    created_at=now,
+                    updated_at=now,
+                ))
+            else:
+                profile.supplier_name = supplier_name
+                profile.vertical = vertical
+                profile.country_code = country_code
+                profile.region = region
+                profile.description = description
+                profile.certifications = json.dumps(certs)
+                profile.lead_time_days_min = lead_time_days_min
+                profile.lead_time_days_typical = lead_time_days_typical
+                profile.moq = moq
+                profile.capacity_units_per_month = capacity_units_per_month
+                profile.capability_vector = embedding
+                profile.updated_at = now
+
+            await session.commit()
+
+        logger.info("Registered supplier capability profile for %s (%s)", supplier_id, supplier_name)
+
+    async def discover_suppliers(
+        self,
+        query: str,
+        vertical: str | None = None,
+        country_code: str | None = None,
+        certifications: list[str] | None = None,
+        max_lead_time_days: int | None = None,
+        max_moq: int | None = None,
+        limit: int = 10,
+    ) -> list[dict]:
+        """
+        Discover suppliers by capability using semantic search.
+
+        When pgvector is available (INTELLIGENCE_OPENAI_API_KEY set), uses cosine similarity
+        on the capability embedding. Falls back to full-text ILIKE search when not configured.
+        Returns structured profiles merged with intelligence metrics where available.
+        """
+        query_embedding = await _embed_text(query) if _settings.openai_api_key else None
+
+        async with self._session_factory() as session:
+            q = select(SupplierCapabilityProfile)
+
+            if vertical:
+                q = q.where(SupplierCapabilityProfile.vertical == vertical)
+            if country_code:
+                q = q.where(SupplierCapabilityProfile.country_code == country_code)
+            if max_moq is not None:
+                q = q.where(SupplierCapabilityProfile.moq <= max_moq)
+            if max_lead_time_days is not None:
+                q = q.where(
+                    SupplierCapabilityProfile.lead_time_days_typical <= max_lead_time_days
+                )
+            if certifications:
+                # Filter to suppliers whose certifications JSON contains ALL requested certs
+                for cert in certifications:
+                    q = q.where(
+                        SupplierCapabilityProfile.certifications.contains(cert)
+                    )
+
+            if query_embedding is not None:
+                # Semantic: order by cosine distance (pgvector <=> operator)
+                q = q.where(SupplierCapabilityProfile.capability_vector.isnot(None))
+                q = q.order_by(
+                    SupplierCapabilityProfile.capability_vector.cosine_distance(query_embedding)
+                )
+            else:
+                # Keyword fallback: search description + name
+                q = q.where(
+                    SupplierCapabilityProfile.description.ilike(f"%{query}%")
+                    | SupplierCapabilityProfile.supplier_name.ilike(f"%{query}%")
+                )
+
+            q = q.limit(limit)
+            result = await session.execute(q)
+            profiles = result.scalars().all()
+
+            # Merge with intelligence metrics for each returned supplier
+            output = []
+            for p in profiles:
+                metrics = await self._load_metrics(session, p.supplier_id)
+                intel_result = await session.execute(
+                    select(SupplierProfile).where(SupplierProfile.supplier_id == p.supplier_id)
+                )
+                intel = intel_result.scalar_one_or_none()
+
+                output.append({
+                    "supplier_id": p.supplier_id,
+                    "supplier_name": p.supplier_name,
+                    "vertical": p.vertical,
+                    "country_code": p.country_code,
+                    "region": p.region,
+                    "description": p.description,
+                    "certifications": json.loads(p.certifications or "[]"),
+                    "lead_time_days_min": p.lead_time_days_min,
+                    "lead_time_days_typical": p.lead_time_days_typical,
+                    "moq": p.moq,
+                    "capacity_units_per_month": p.capacity_units_per_month,
+                    "reliability_score": round(intel.reliability_score, 3) if intel else None,
+                    "total_orders": intel.total_orders if intel else 0,
+                    "delivery_rate": round(metrics.get("delivery_rate", 0.0), 3) if metrics else None,
+                })
+            return output
+
     async def aclose(self) -> None:
         await self._engine.dispose()
+
+
+def _build_capability_text(
+    name: str, vertical: str, country: str, region: str,
+    description: str, certs: list[str], lead_days: int, moq: int,
+) -> str:
+    """Build a single text string that captures all discoverable capability signals."""
+    cert_str = ", ".join(certs) if certs else "no certifications listed"
+    return (
+        f"{name}. Vertical: {vertical}. Location: {region}, {country}. "
+        f"Certifications: {cert_str}. "
+        f"Lead time: {lead_days} days typical. Minimum order quantity: {moq}. "
+        f"{description}"
+    )
+
+
+async def _embed_text(text_input: str) -> list[float] | None:
+    """Call OpenAI embeddings API. Returns None on any failure."""
+    try:
+        import openai
+        client = openai.AsyncOpenAI(api_key=_settings.openai_api_key)
+        resp = await client.embeddings.create(
+            input=text_input,
+            model=_settings.embedding_model,
+        )
+        return resp.data[0].embedding
+    except Exception as exc:
+        logger.warning("Embedding generation failed: %s", exc)
+        return None
 
 
 # Module-level singleton

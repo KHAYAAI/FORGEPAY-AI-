@@ -49,38 +49,109 @@ class GetOrderStatusTool(BaseTool):
         raise NotImplementedError
 
 
-class GetSuppliersInput(BaseModel):
-    vertical: str = Field(description="Vertical: grocery | b2b_procurement | healthcare")
-    curated_only: bool = Field(default=False, description="Only return preferred/locked-in suppliers")
-
-
-class GetSuppliersTool(BaseTool):
-    """List available suppliers for a vertical, with preferred suppliers highlighted."""
-
-    name: str = "get_suppliers"
-    description: str = (
-        "List available suppliers for the current vertical. "
-        "Use when the user asks to compare suppliers, or wants to know who is preferred."
+class SupplierDiscoveryInput(BaseModel):
+    query: str = Field(
+        description=(
+            "Natural language description of what you need: product type, "
+            "certifications, location, capacity. E.g. 'ISO 9001 steel bolt supplier "
+            "South Africa MOQ under 500'."
+        )
     )
-    args_schema: type[BaseModel] = GetSuppliersInput
-    medusa_client: httpx.AsyncClient
+    vertical: str = Field(
+        default="b2b_procurement",
+        description="Vertical: grocery | b2b_procurement | healthcare",
+    )
+    country_code: str | None = Field(
+        default=None,
+        description="ISO 3166-1 alpha-2 country code to filter by, e.g. 'ZA' or 'IN'",
+    )
+    certifications: list[str] = Field(
+        default_factory=list,
+        description="Required certifications, e.g. ['ISO_9001', 'IATF_16949']",
+    )
+    max_moq: int | None = Field(
+        default=None,
+        description="Maximum acceptable minimum order quantity",
+    )
+    max_lead_time_days: int | None = Field(
+        default=None,
+        description="Maximum acceptable typical lead time in days",
+    )
+    limit: int = Field(default=5, ge=1, le=20, description="Number of suppliers to return")
+
+
+class SupplierDiscoveryTool(BaseTool):
+    """
+    Discover suppliers by capability using semantic search.
+
+    Use when the user asks to find suppliers, compare options, or needs a
+    supplier matching specific requirements (certifications, location, MOQ, lead time).
+    Returns structured profiles with reliability scores where available.
+    Replaces the simpler get_suppliers tool with intelligence-backed discovery.
+    """
+
+    name: str = "discover_suppliers"
+    description: str = (
+        "Find suppliers matching capability requirements using semantic search. "
+        "Use when the user asks 'find me a supplier for X', 'who can supply ISO 9001 "
+        "fasteners?', or compares supplier options. Supports filtering by country, "
+        "certifications, MOQ, and lead time."
+    )
+    args_schema: type[BaseModel] = SupplierDiscoveryInput
+    intelligence_client: httpx.AsyncClient
 
     class Config:
         arbitrary_types_allowed = True
 
-    async def _arun(self, vertical: str, curated_only: bool = False) -> str:
-        resp = await self.medusa_client.get(
-            "/admin/vendors",
-            params={"vertical": vertical, "curated_only": curated_only},
-        )
-        resp.raise_for_status()
-        vendors = resp.json().get("vendors", [])
-        if not vendors:
-            return "No suppliers found for this vertical."
+    async def _arun(
+        self,
+        query: str,
+        vertical: str = "b2b_procurement",
+        country_code: str | None = None,
+        certifications: list[str] | None = None,
+        max_moq: int | None = None,
+        max_lead_time_days: int | None = None,
+        limit: int = 5,
+    ) -> str:
+        try:
+            resp = await self.intelligence_client.get(
+                "/suppliers/discover",
+                params={
+                    "query": query,
+                    "vertical": vertical,
+                    "country_code": country_code or "",
+                    "certifications": ",".join(certifications) if certifications else "",
+                    "max_moq": max_moq,
+                    "max_lead_time_days": max_lead_time_days,
+                    "limit": limit,
+                },
+            )
+            resp.raise_for_status()
+        except httpx.RequestError as e:
+            return f"Supplier discovery service unavailable: {e}"
+        except httpx.HTTPStatusError as e:
+            return f"Discovery failed: {e.response.status_code}"
+
+        suppliers = resp.json().get("suppliers", [])
+        if not suppliers:
+            return (
+                "No suppliers found matching those criteria. "
+                "Try broadening your search or contact the procurement team to add suppliers."
+            )
+
         lines = []
-        for v in vendors[:10]:
-            tag = " [PREFERRED]" if v.get("is_curated") else ""
-            lines.append(f"- {v['name']}{tag}: {v.get('description', '')[:80]}")
+        for s in suppliers:
+            certs = ", ".join(s.get("certifications", [])) or "none listed"
+            lead = s.get("lead_time_days_typical", "?")
+            moq = s.get("moq", "?")
+            region = s.get("region", "") or s.get("country_code", "")
+            score = s.get("reliability_score")
+            score_str = f", reliability {score:.0%}" if score is not None else ""
+            lines.append(
+                f"**{s['supplier_name']}** ({region}): "
+                f"certs: {certs}, lead {lead}d, MOQ {moq}{score_str}"
+            )
+
         return "\n".join(lines)
 
     def _run(self, *args, **kwargs):
