@@ -27,6 +27,7 @@ class ConversationTurn:
     vertical: Vertical
     conversation_id: str
     data_set_id: str | None = None  # Overrides vertical default if set
+    org_id: str | None = None       # B2B: org context for shared memory + spend limit
 
 
 @dataclass
@@ -88,6 +89,7 @@ class AIOrchestrator:
             conversation_id=turn.conversation_id,
             message=turn.message,
             vertical=turn.vertical,
+            org_id=turn.org_id,
         )
         return OrchestratorResponse(
             text=result.text,

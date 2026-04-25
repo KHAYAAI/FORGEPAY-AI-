@@ -169,6 +169,8 @@ async def _fetch_org_context(user_id: str) -> dict[str, str]:
                 headers["X-Spend-Limit-Cents"] = str(data["spend_limit_cents"])
             if data.get("currency_code"):
                 headers["X-Currency"] = data["currency_code"]
+            if data.get("country_code"):
+                headers["X-Country-Code"] = data["country_code"]
             return headers
     except Exception:
         pass

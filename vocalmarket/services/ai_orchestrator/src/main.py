@@ -2,7 +2,7 @@
 
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel
@@ -38,9 +38,12 @@ class ChatRequest(BaseModel):
 
 
 @app.post("/chat", response_model=OrchestratorResponse)
-async def chat(req: ChatRequest) -> OrchestratorResponse:
+async def chat(req: ChatRequest, request: Request) -> OrchestratorResponse:
     if _orchestrator is None:
         raise HTTPException(status_code=503, detail="Orchestrator not initialised")
+
+    # Org context forwarded by the API gateway as headers
+    org_id = request.headers.get("X-Org-Id") or None
 
     turn = ConversationTurn(
         user_id=req.user_id,
@@ -48,6 +51,7 @@ async def chat(req: ChatRequest) -> OrchestratorResponse:
         vertical=req.vertical,
         conversation_id=req.conversation_id,
         data_set_id=req.data_set_id,
+        org_id=org_id,
     )
     return await _orchestrator.process(turn)
 

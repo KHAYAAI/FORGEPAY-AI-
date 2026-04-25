@@ -12,6 +12,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from .supplier_store import SupplierCapabilityProfile, SupplierIntelligenceStore, get_supplier_intelligence_store
@@ -107,6 +108,162 @@ async def record_rfq_response(req: RFQResponseRequest):
         was_accepted=req.was_accepted,
     )
     return {"status": "recorded"}
+
+
+@app.get("/supplier-portal", response_class=HTMLResponse)
+async def supplier_portal():
+    """
+    Self-service supplier onboarding portal.
+    Served at http://intelligence:8004/supplier-portal
+    Submits to POST /suppliers/onboard.
+    """
+    return HTMLResponse(content=_SUPPLIER_PORTAL_HTML)
+
+
+_SUPPLIER_PORTAL_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VocalMarket — Supplier Onboarding</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; background: #f5f5f5; margin: 0; padding: 2rem; color: #1a1a1a; }
+    .card { background: white; border-radius: 12px; padding: 2rem; max-width: 680px; margin: 0 auto; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+    h1 { font-size: 1.5rem; margin: 0 0 0.25rem; }
+    .sub { color: #666; margin: 0 0 2rem; font-size: 0.9rem; }
+    label { display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.25rem; margin-top: 1rem; }
+    input, select, textarea { width: 100%; padding: 0.6rem 0.8rem; border: 1px solid #ddd; border-radius: 6px; font-size: 0.95rem; }
+    textarea { resize: vertical; min-height: 80px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .certs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.4rem; }
+    .cert-chip { display: flex; align-items: center; gap: 0.3rem; background: #f0f0f0; border-radius: 4px; padding: 0.25rem 0.5rem; font-size: 0.8rem; }
+    .cert-chip input[type=checkbox] { width: auto; margin: 0; }
+    button { margin-top: 1.5rem; width: 100%; padding: 0.85rem; background: #0070f3; color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+    button:hover { background: #0060d3; }
+    #result { margin-top: 1rem; padding: 1rem; border-radius: 8px; display: none; }
+    #result.ok { background: #e6f9ed; color: #1a6b35; border: 1px solid #a3d9b1; }
+    #result.err { background: #fde8e8; color: #8b1a1a; border: 1px solid #f5a5a5; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>VocalMarket Supplier Portal</h1>
+  <p class="sub">Register your capabilities so buyers can discover you via voice search.</p>
+  <form id="form">
+    <div class="row">
+      <div>
+        <label for="supplier_id">Supplier ID *</label>
+        <input id="supplier_id" name="supplier_id" required placeholder="e.g. sup_steelsa_001">
+      </div>
+      <div>
+        <label for="supplier_name">Company Name *</label>
+        <input id="supplier_name" name="supplier_name" required placeholder="e.g. Steel SA (Pty) Ltd">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="vertical">Vertical *</label>
+        <select id="vertical" name="vertical">
+          <option value="b2b_procurement">B2B Procurement</option>
+          <option value="grocery">Grocery</option>
+          <option value="healthcare">Healthcare</option>
+        </select>
+      </div>
+      <div>
+        <label for="country_code">Country *</label>
+        <select id="country_code" name="country_code">
+          <option value="ZA">South Africa</option>
+          <option value="IN">India</option>
+          <option value="US">United States</option>
+          <option value="DE">Germany</option>
+          <option value="FR">France</option>
+        </select>
+      </div>
+    </div>
+    <label for="region">Region / Province</label>
+    <input id="region" name="region" placeholder="e.g. Gauteng, Maharashtra">
+    <label for="description">Capability Description *</label>
+    <textarea id="description" name="description" required placeholder="Describe your products, manufacturing capabilities, materials, and specialisations..."></textarea>
+    <label>Certifications</label>
+    <div class="certs">
+      <label class="cert-chip"><input type="checkbox" value="ISO_9001"> ISO 9001</label>
+      <label class="cert-chip"><input type="checkbox" value="IATF_16949"> IATF 16949</label>
+      <label class="cert-chip"><input type="checkbox" value="ISO_14001"> ISO 14001</label>
+      <label class="cert-chip"><input type="checkbox" value="ISO_45001"> ISO 45001</label>
+      <label class="cert-chip"><input type="checkbox" value="SABS"> SABS</label>
+      <label class="cert-chip"><input type="checkbox" value="CE"> CE</label>
+      <label class="cert-chip"><input type="checkbox" value="FDA_510K"> FDA 510(k)</label>
+      <label class="cert-chip"><input type="checkbox" value="CDSCO"> CDSCO</label>
+    </div>
+    <div class="row">
+      <div>
+        <label for="lead_time_days_min">Min Lead Time (days)</label>
+        <input id="lead_time_days_min" name="lead_time_days_min" type="number" min="1" value="7">
+      </div>
+      <div>
+        <label for="lead_time_days_typical">Typical Lead Time (days)</label>
+        <input id="lead_time_days_typical" name="lead_time_days_typical" type="number" min="1" value="14">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="moq">Min Order Quantity (MOQ)</label>
+        <input id="moq" name="moq" type="number" min="1" value="1">
+      </div>
+      <div>
+        <label for="capacity_units_per_month">Monthly Capacity (units)</label>
+        <input id="capacity_units_per_month" name="capacity_units_per_month" type="number" min="0" placeholder="Optional">
+      </div>
+    </div>
+    <button type="submit">Register as Supplier</button>
+  </form>
+  <div id="result"></div>
+</div>
+<script>
+document.getElementById('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const certInputs = document.querySelectorAll('.certs input[type=checkbox]:checked');
+  const certs = Array.from(certInputs).map(i => i.value);
+  const capacity = fd.get('capacity_units_per_month');
+  const payload = {
+    supplier_id: fd.get('supplier_id'),
+    supplier_name: fd.get('supplier_name'),
+    vertical: fd.get('vertical'),
+    country_code: fd.get('country_code'),
+    region: fd.get('region') || '',
+    description: fd.get('description'),
+    certifications: certs,
+    lead_time_days_min: parseInt(fd.get('lead_time_days_min')),
+    lead_time_days_typical: parseInt(fd.get('lead_time_days_typical')),
+    moq: parseInt(fd.get('moq')),
+    capacity_units_per_month: capacity ? parseInt(capacity) : null,
+  };
+  const el = document.getElementById('result');
+  try {
+    const res = await fetch('/suppliers/onboard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      el.className = 'ok';
+      el.textContent = `✓ Registered successfully! Supplier ID: ${data.supplier_id}. Buyers can now discover you via voice search.`;
+    } else {
+      el.className = 'err';
+      el.textContent = `Error: ${data.detail || JSON.stringify(data)}`;
+    }
+  } catch (err) {
+    el.className = 'err';
+    el.textContent = `Network error: ${err.message}`;
+  }
+  el.style.display = 'block';
+});
+</script>
+</body>
+</html>"""
 
 
 @app.get("/suppliers/intelligence")

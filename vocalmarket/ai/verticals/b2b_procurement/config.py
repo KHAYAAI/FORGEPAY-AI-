@@ -7,6 +7,7 @@ import httpx
 from ..base import BaseVertical
 
 _intelligence_http: httpx.AsyncClient | None = None
+_medusa_http: httpx.AsyncClient | None = None
 
 
 def _get_intelligence_client() -> httpx.AsyncClient:
@@ -17,6 +18,16 @@ def _get_intelligence_client() -> httpx.AsyncClient:
             timeout=5.0,
         )
     return _intelligence_http
+
+
+def _get_medusa_client() -> httpx.AsyncClient:
+    global _medusa_http
+    if _medusa_http is None:
+        _medusa_http = httpx.AsyncClient(
+            base_url=os.environ.get("MEDUSA_BASE_URL", "http://medusa:9000"),
+            timeout=30.0,
+        )
+    return _medusa_http
 
 
 class B2BProcurementVertical(BaseVertical):
@@ -36,16 +47,21 @@ You are a B2B procurement assistant for business buyers.
 """
 
     def extra_tools(self) -> list:
-        from vocalmarket.services.ai_orchestrator.src.tools.commerce_tools import SupplierDiscoveryTool
+        from vocalmarket.services.ai_orchestrator.src.tools.commerce_tools import (
+            RequestQuoteTool,
+            SupplierDiscoveryTool,
+        )
         from vocalmarket.services.ai_orchestrator.src.tools.intelligence_tools import (
             GetSupplierIntelligenceTool,
             RecordDeliveryOutcomeTool,
         )
-        client = _get_intelligence_client()
+        intel_client = _get_intelligence_client()
+        medusa_client = _get_medusa_client()
         return [
-            SupplierDiscoveryTool(intelligence_client=client),
-            GetSupplierIntelligenceTool(intelligence_client=client),
-            RecordDeliveryOutcomeTool(intelligence_client=client),
+            SupplierDiscoveryTool(intelligence_client=intel_client),
+            RequestQuoteTool(medusa_client=medusa_client),
+            GetSupplierIntelligenceTool(intelligence_client=intel_client),
+            RecordDeliveryOutcomeTool(intelligence_client=intel_client),
         ]
 
     async def pre_order_compliance_check(

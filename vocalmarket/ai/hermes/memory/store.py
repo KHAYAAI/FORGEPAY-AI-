@@ -50,13 +50,20 @@ class Base(DeclarativeBase):
 
 
 class MemoryFact(Base):
-    """One durable semantic fact about a user, stored with its embedding vector."""
+    """
+    One durable semantic fact about a user, stored with its embedding vector.
+
+    Facts with org_id set (and user_id empty) are org-scoped: shared across all
+    members of that org in the B2B vertical. Personal facts have org_id=None.
+    """
 
     __tablename__ = "memory_facts"
     __table_args__ = {"schema": "vocalmarket"}
 
     id: Any = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Any = mapped_column(String(128), index=True, nullable=False)
+    # org_id — when set, this fact is shared across all org members (B2B shared knowledge)
+    org_id: Any = mapped_column(String(128), index=True, nullable=True)
     vertical: Any = mapped_column(String(64), nullable=False)
     fact_type: Any = mapped_column(String(32), nullable=False)
     content: Any = mapped_column(Text, nullable=False)
@@ -124,6 +131,15 @@ class UserMemoryStore:
                 "ON vocalmarket.memory_facts USING hnsw (embedding vector_cosine_ops) "
                 "WITH (m = 16, ef_construction = 64)"
             ))
+            # Add org_id column to existing deployments (idempotent)
+            await conn.execute(text(
+                "ALTER TABLE vocalmarket.memory_facts "
+                "ADD COLUMN IF NOT EXISTS org_id VARCHAR(128)"
+            ))
+            await conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS memory_facts_org_id_idx "
+                "ON vocalmarket.memory_facts (org_id) WHERE org_id IS NOT NULL"
+            ))
 
     # ── Context loading ──────────────────────────────────────────────────────
 
@@ -133,11 +149,12 @@ class UserMemoryStore:
         vertical: str,
         conversation_id: str,
         query: str,
+        org_id: str | None = None,
     ) -> "MemoryContext":
         """Return everything Hermes needs to answer the current turn."""
         episodic, semantic, summary, turn_count = await asyncio.gather(
             self._load_episodic(conversation_id),
-            self._retrieve_semantic(user_id, vertical, query),
+            self._retrieve_semantic(user_id, vertical, query, org_id=org_id),
             self._load_summary(user_id, vertical),
             self._turn_count(conversation_id),
         )
@@ -165,22 +182,48 @@ class UserMemoryStore:
             messages.append(cls(content=row.content))
         return messages
 
-    async def _retrieve_semantic(self, user_id: str, vertical: str, query: str) -> list[str]:
-        """Embed query, return top-K most relevant facts via cosine similarity."""
+    async def _retrieve_semantic(
+        self,
+        user_id: str,
+        vertical: str,
+        query: str,
+        org_id: str | None = None,
+    ) -> list[str]:
+        """
+        Embed query, return top-K most relevant facts via cosine similarity.
+
+        When org_id is provided, retrieves both personal facts (user_id match)
+        AND org-scoped facts (org_id match) — up to SEMANTIC_TOP_K of each,
+        interleaved by relevance score.
+        """
         query_vec = await self._embedder.embed(query)
 
         async with self._session_factory() as session:
-            # pgvector cosine distance operator: <=>
-            result = await session.execute(
+            # Personal facts for this user
+            personal_q = (
                 select(MemoryFact.content, MemoryFact.id)
-                .where(
-                    MemoryFact.user_id == user_id,
-                    MemoryFact.vertical == vertical,
-                )
+                .where(MemoryFact.user_id == user_id, MemoryFact.vertical == vertical)
                 .order_by(MemoryFact.embedding.cosine_distance(query_vec))
                 .limit(SEMANTIC_TOP_K)
             )
-            rows = result.all()
+            result = await session.execute(personal_q)
+            rows = list(result.all())
+
+            # Org-level shared facts (B2B: preferred suppliers, contract terms, etc.)
+            if org_id:
+                org_q = (
+                    select(MemoryFact.content, MemoryFact.id)
+                    .where(
+                        MemoryFact.org_id == org_id,
+                        MemoryFact.vertical == vertical,
+                        MemoryFact.user_id == "",  # org facts have no specific user
+                    )
+                    .order_by(MemoryFact.embedding.cosine_distance(query_vec))
+                    .limit(SEMANTIC_TOP_K)
+                )
+                org_result = await session.execute(org_q)
+                rows = rows + list(org_result.all())
+
             fact_ids = [str(r.id) for r in rows]
 
         if fact_ids:
@@ -226,11 +269,11 @@ class UserMemoryStore:
         human_message: str,
         ai_message: str,
         extracted_facts: list["ExtractedFact"] | None = None,
+        org_id: str | None = None,
     ) -> None:
         """Persist one conversation turn and any newly extracted semantic facts."""
         async with self._session_factory() as session:
             async with session.begin():
-                # Get next turn index
                 result = await session.execute(
                     select(func.coalesce(func.max(EpisodicMessage.turn_index), -1))
                     .where(EpisodicMessage.conversation_id == conversation_id)
@@ -255,22 +298,36 @@ class UserMemoryStore:
                 ))
 
         if extracted_facts:
-            await self.upsert_facts(user_id, vertical, extracted_facts)
+            await self.upsert_facts(user_id, vertical, extracted_facts, org_id=org_id)
 
     async def upsert_facts(
         self,
         user_id: str,
         vertical: str,
         facts: list["ExtractedFact"],
+        org_id: str | None = None,
     ) -> None:
-        """Embed and store new facts, replacing existing ones with the same content hash."""
+        """
+        Embed and store new facts.
+
+        SUPPLIER facts in the B2B vertical are stored as org-scoped (org_id set,
+        user_id="") so they are shared across all procurement team members.
+        All other facts are stored as personal (user_id set, org_id=None).
+        """
         embeddings = await self._embedder.embed_batch([f.content for f in facts])
 
         async with self._session_factory() as session:
             async with session.begin():
                 for fact, embedding in zip(facts, embeddings):
+                    # Supplier facts in B2B belong to the org, not a single user
+                    is_org_fact = (
+                        org_id is not None
+                        and fact.fact_type == FactType.SUPPLIER
+                        and vertical == "b2b_procurement"
+                    )
                     session.add(MemoryFact(
-                        user_id=user_id,
+                        user_id="" if is_org_fact else user_id,
+                        org_id=org_id if is_org_fact else None,
                         vertical=vertical,
                         fact_type=fact.fact_type.value,
                         content=fact.content,

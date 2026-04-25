@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "description": "VocalMarket commerce adapter — Medusa.js 2.x",
   "type": "module",
-  "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
-    "dev": "ts-node-esm src/index.ts",
-    "lint": "eslint src --ext .ts"
+    "build": "medusa build",
+    "dev": "medusa develop",
+    "start": "medusa start"
   },
   "dependencies": {
+    "@medusajs/medusa": "^2.3.0",
+    "@medusajs/framework": "^2.3.0",
     "@medusajs/js-sdk": "^2.3.0",
     "@medusajs/types": "^2.3.0"
   },

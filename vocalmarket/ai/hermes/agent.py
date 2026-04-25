@@ -93,13 +93,14 @@ class HermesAgent:
         conversation_id: str,
         message: str,
         vertical: Vertical,
+        org_id: str | None = None,
     ) -> HermesResponse:
         vertical_str = vertical.value
         vertical_cfg = getattr(vertical_settings, vertical_str)()
         vertical_obj = VERTICAL_CLASSES[vertical_str]()
 
-        # 1. Load memory context
-        context = await self._memory.load_context(user_id, vertical_str, conversation_id, message)
+        # 1. Load memory context (personal + org-scoped facts when org_id present)
+        context = await self._memory.load_context(user_id, vertical_str, conversation_id, message, org_id=org_id)
 
         # 2. Load user skills
         skill_tools = await self._skill_registry.load_skills(user_id, vertical_str)
@@ -146,6 +147,7 @@ class HermesAgent:
             human_message=message,
             ai_message=response_text,
             context=context,
+            org_id=org_id,
         ))
 
         return HermesResponse(text=response_text, conversation_id=conversation_id)
@@ -158,6 +160,7 @@ class HermesAgent:
         human_message: str,
         ai_message: str,
         context,
+        org_id: str | None = None,
     ) -> None:
         """Non-blocking post-processing: fact extraction + optional consolidation."""
         facts = await self._extractor.extract(human_message, ai_message, vertical)
@@ -168,6 +171,7 @@ class HermesAgent:
             human_message=human_message,
             ai_message=ai_message,
             extracted_facts=facts or None,
+            org_id=org_id,
         )
         if context.should_consolidate:
             await self._consolidator.consolidate(user_id, vertical, conversation_id, context)

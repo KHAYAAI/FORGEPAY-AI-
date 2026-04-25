@@ -79,8 +79,9 @@ class HermesHandler:
         conversation_id: str,
         message: str,
         vertical: Vertical,
+        org_id: str | None = None,
     ) -> HermesResponse:
-        return await self._agent.chat(user_id, conversation_id, message, vertical)
+        return await self._agent.chat(user_id, conversation_id, message, vertical, org_id=org_id)
 
     async def aclose(self) -> None:
         await self._memory.aclose()
