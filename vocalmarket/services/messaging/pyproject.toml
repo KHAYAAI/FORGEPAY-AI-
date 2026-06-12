@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "vocalmarket-messaging"
+version = "0.1.0"
+description = "VocalMarket Messaging Service — omnichannel ingress (Telegram, WhatsApp, SMS, Slack, Teams, USSD)"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.115"
+uvicorn = { extras = ["standard"], version = "^0.32" }
+pydantic = "^2.9"
+pydantic-settings = "^2.6"
+httpx = "^0.28"
+python-multipart = "^0.0.12"   # required by FastAPI for form-encoded webhooks (SMS/USSD/Slack)
+redis = "^5.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3"
+pytest-asyncio = "^0.24"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

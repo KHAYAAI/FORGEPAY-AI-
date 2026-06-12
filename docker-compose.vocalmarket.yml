@@ -11,6 +11,7 @@ name: vocalmarket
 #   payments        — ForgePay + x402 payment service
 #   medusa          — Medusa.js commerce engine
 #   intelligence    — Supplier intelligence store (the data moat)
+#   messaging       — Omnichannel ingress (Telegram, WhatsApp, SMS, Slack, Teams, USSD)
 #   otel-collector  — OpenTelemetry collector
 
 services:
@@ -130,6 +131,44 @@ services:
     depends_on:
       - postgres
       - intelligence
+    restart: unless-stopped
+
+  # ─── Messaging (omnichannel ingress) ───────────────────────────────────────
+  messaging:
+    build:
+      context: ./vocalmarket/services/messaging
+      dockerfile: Dockerfile
+    ports:
+      - "8006:8006"
+    environment:
+      - MESSAGING_ORCHESTRATOR_URL=http://ai-orchestrator:8002
+      - MESSAGING_PUBLIC_BASE_URL=${MESSAGING_PUBLIC_BASE_URL:-http://localhost:8006}
+      - MESSAGING_DEFAULT_VERTICAL=${MESSAGING_DEFAULT_VERTICAL:-grocery}
+      - MESSAGING_REDIS_URL=redis://redis:6379/3
+      # Telegram
+      - MESSAGING_TELEGRAM_BOT_TOKEN=${MESSAGING_TELEGRAM_BOT_TOKEN:-}
+      - MESSAGING_TELEGRAM_WEBHOOK_SECRET=${MESSAGING_TELEGRAM_WEBHOOK_SECRET:-}
+      # WhatsApp (Meta Cloud API)
+      - MESSAGING_WHATSAPP_ACCESS_TOKEN=${MESSAGING_WHATSAPP_ACCESS_TOKEN:-}
+      - MESSAGING_WHATSAPP_PHONE_NUMBER_ID=${MESSAGING_WHATSAPP_PHONE_NUMBER_ID:-}
+      - MESSAGING_WHATSAPP_APP_SECRET=${MESSAGING_WHATSAPP_APP_SECRET:-}
+      - MESSAGING_WHATSAPP_VERIFY_TOKEN=${MESSAGING_WHATSAPP_VERIFY_TOKEN:-}
+      # SMS (Twilio)
+      - MESSAGING_TWILIO_ACCOUNT_SID=${MESSAGING_TWILIO_ACCOUNT_SID:-}
+      - MESSAGING_TWILIO_AUTH_TOKEN=${MESSAGING_TWILIO_AUTH_TOKEN:-}
+      - MESSAGING_TWILIO_FROM_NUMBER=${MESSAGING_TWILIO_FROM_NUMBER:-}
+      # Slack
+      - MESSAGING_SLACK_BOT_TOKEN=${MESSAGING_SLACK_BOT_TOKEN:-}
+      - MESSAGING_SLACK_SIGNING_SECRET=${MESSAGING_SLACK_SIGNING_SECRET:-}
+      # Microsoft Teams
+      - MESSAGING_TEAMS_APP_ID=${MESSAGING_TEAMS_APP_ID:-}
+      - MESSAGING_TEAMS_APP_PASSWORD=${MESSAGING_TEAMS_APP_PASSWORD:-}
+      - MESSAGING_TEAMS_INBOUND_SECRET=${MESSAGING_TEAMS_INBOUND_SECRET:-}
+      # USSD (Africa's Talking)
+      - MESSAGING_USSD_SERVICE_CODE=${MESSAGING_USSD_SERVICE_CODE:-*384*9000#}
+    depends_on:
+      - ai-orchestrator
+      - redis
     restart: unless-stopped
 
   # ─── Payments ──────────────────────────────────────────────────────────────
