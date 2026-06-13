@@ -6,8 +6,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { AgentResponse, Vertical } from "../../../shared/types/voice";
-import { VoiceClient, type VoiceClientStatus } from "../../lib/voice-client";
+import type { AgentResponse, Vertical } from "@/types";
+import { VoiceClient, type VoiceClientStatus } from "@/lib/voice-client";
 import { AudioVisualizer } from "./AudioVisualizer";
 import { VoiceButton } from "./VoiceButton";
 
@@ -86,7 +86,7 @@ export function VoiceSession({ userId, vertical, conversationId }: VoiceSessionP
       {/* Message history */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
         {messages.length === 0 && (
-          <p className="text-center text-gray-400 text-sm mt-12">
+          <p className="text-center text-slate-600 text-sm mt-12">
             Tap the mic and start speaking
           </p>
         )}
@@ -98,10 +98,10 @@ export function VoiceSession({ userId, vertical, conversationId }: VoiceSessionP
           >
             <div
               className={[
-                "max-w-xs rounded-2xl px-4 py-3 text-sm",
+                "max-w-xs rounded-2xl px-4 py-3 text-sm leading-relaxed",
                 msg.role === "user"
-                  ? "bg-indigo-500 text-white rounded-br-sm"
-                  : "bg-gray-100 text-gray-900 rounded-bl-sm",
+                  ? "bg-indigo-600 text-white rounded-br-sm"
+                  : "bg-slate-800 text-slate-100 border border-slate-700 rounded-bl-sm",
               ].join(" ")}
             >
               <p>{msg.text}</p>
@@ -112,10 +112,9 @@ export function VoiceSession({ userId, vertical, conversationId }: VoiceSessionP
           </div>
         ))}
 
-        {/* Live transcription preview */}
         {liveTranscript && (
           <div className="flex justify-end">
-            <div className="max-w-xs rounded-2xl bg-indigo-100 px-4 py-3 text-sm text-indigo-700 italic">
+            <div className="max-w-xs rounded-2xl bg-indigo-600/20 border border-indigo-500/30 px-4 py-3 text-sm text-indigo-300 italic">
               {liveTranscript}…
             </div>
           </div>
@@ -125,7 +124,7 @@ export function VoiceSession({ userId, vertical, conversationId }: VoiceSessionP
       </div>
 
       {/* Voice controls */}
-      <div className="border-t bg-white px-4 py-6 flex flex-col items-center gap-4">
+      <div className="border-t border-slate-800 bg-slate-900 px-4 py-6 flex flex-col items-center gap-4">
         <AudioVisualizer
           isListening={status === "listening"}
           isSpeaking={status === "speaking"}
@@ -146,17 +145,17 @@ function ProductList({ products }: { products: NonNullable<AgentResponse["produc
       {products.slice(0, 3).map((p) => (
         <div
           key={p.id}
-          className="rounded-lg border border-gray-200 bg-white p-2 text-xs text-gray-700"
+          className="rounded-lg border border-slate-600 bg-slate-700/50 p-2 text-xs"
         >
           <div className="flex items-center justify-between">
-            <span className="font-medium">{p.name}</span>
+            <span className="font-medium text-slate-100">{p.name}</span>
             {p.isCurated && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-700 text-xs">
+              <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-amber-300 text-xs border border-amber-500/30">
                 Preferred
               </span>
             )}
           </div>
-          <div className="text-gray-500">
+          <div className="mt-0.5 text-slate-400">
             {p.currency} {p.price.toFixed(2)} · {p.inStock ? "In stock" : "Out of stock"}
           </div>
         </div>

@@ -9,7 +9,13 @@
  *   5. Plays back TTS audio chunks via Web Audio API
  */
 
-import type { AgentResponse, Vertical, WebSocketMessage } from "../../../shared/types/voice";
+import type { AgentResponse, Vertical } from "@/types";
+
+type WebSocketMessage =
+  | { type: "transcription"; text: string }
+  | { type: "agent_response"; text: string; products?: AgentResponse["products"] }
+  | { type: "tts_complete" }
+  | { type: "error"; message?: string };
 
 export type VoiceClientStatus =
   | "idle"
@@ -116,25 +122,19 @@ export class VoiceClient {
 
     const msg: WebSocketMessage = JSON.parse(event.data as string);
     switch (msg.type) {
-      case "transcription": {
-        const payload = msg.payload as { text: string };
-        this.callbacks.onTranscription(payload.text);
+      case "transcription":
+        this.callbacks.onTranscription(msg.text);
         break;
-      }
-      case "agent_response": {
+      case "agent_response":
         this.setStatus("speaking");
-        this.callbacks.onAgentResponse(msg.payload as AgentResponse);
+        this.callbacks.onAgentResponse({ text: msg.text, products: msg.products });
         break;
-      }
-      case "tts_complete": {
-        // Audio chunks may still be in the queue; status resets after playback
+      case "tts_complete":
         break;
-      }
-      case "error": {
+      case "error":
         this.setStatus("error");
-        this.callbacks.onError(String((msg.payload as any)?.message ?? "Unknown error"));
+        this.callbacks.onError(msg.message ?? "Unknown error");
         break;
-      }
     }
   }
 
