@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VocalMarket AI — UI Preview</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .animate-pulse-ring { animation: pulse-ring 1.5s cubic-bezier(0.4,0,0.6,1) infinite; }
+    @keyframes pulse-ring { 0%,100%{opacity:.25;transform:scale(1)} 50%{opacity:.6;transform:scale(1.15)} }
+    .animate-bars span { display:inline-block; width:3px; border-radius:2px; background:#10b981; animation:bars .8s ease-in-out infinite; }
+    .animate-bars span:nth-child(2){animation-delay:.1s}
+    .animate-bars span:nth-child(3){animation-delay:.2s}
+    .animate-bars span:nth-child(4){animation-delay:.3s}
+    .animate-bars span:nth-child(5){animation-delay:.15s}
+    @keyframes bars { 0%,100%{height:4px} 50%{height:24px} }
+    .page { display:none; }
+    .page.active { display:block; }
+    .nav-item { transition: all .15s; }
+    .nav-item.active { background:#1e293b; color:#fff; }
+    .nav-item:not(.active):hover { background:rgba(30,41,59,.5); color:#cbd5e1; }
+    .card-hover { transition: all .2s; }
+    .card-hover:hover { border-color: rgba(99,102,241,.4); background:rgba(30,41,59,.6); transform:translateY(-1px); }
+    .mic-btn { transition: all .2s; box-shadow: 0 0 0 0 rgba(99,102,241,.4); }
+    .mic-btn.listening { animation: mic-pulse 1.5s infinite; background:#10b981; }
+    @keyframes mic-pulse { 0%{box-shadow:0 0 0 0 rgba(16,185,129,.5)} 70%{box-shadow:0 0 0 16px rgba(16,185,129,0)} 100%{box-shadow:0 0 0 0 rgba(16,185,129,0)} }
+    .msg-in { animation: slide-in .2s ease-out; }
+    @keyframes slide-in { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+    .badge { display:inline-flex; align-items:center; border-radius:9999px; padding:2px 8px; font-size:11px; font-weight:500; }
+    ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-track { background:transparent; } ::-webkit-scrollbar-thumb { background:#334155; border-radius:2px; }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen">
+
+<!-- ═══════════════════════════════ LOGIN PAGE ═══════════════════════════════ -->
+<div id="page-login" class="page active min-h-screen flex flex-col items-center justify-center px-4">
+  <div class="mb-8 flex flex-col items-center gap-3">
+    <div class="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-xl shadow-indigo-500/30">
+      <svg class="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+    </div>
+    <div class="text-center">
+      <h1 class="text-xl font-semibold">VocalMarket AI</h1>
+      <p class="text-sm text-slate-400 mt-0.5">Voice-first commerce platform</p>
+    </div>
+  </div>
+  <div class="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900 p-8">
+    <h2 class="text-sm font-semibold text-slate-100 mb-6">Sign in to your account</h2>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-slate-400 mb-1.5">Email address</label>
+        <input type="email" value="demo@vocalmarket.ai" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2.5 text-sm text-slate-100 outline-none focus:border-indigo-500" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-400 mb-1.5">Password</label>
+        <input type="password" value="••••••••" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2.5 text-sm text-slate-100 outline-none focus:border-indigo-500" />
+      </div>
+      <button onclick="goTo('home')" class="w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 transition-colors mt-2">
+        Sign in
+      </button>
+    </div>
+  </div>
+  <p class="mt-6 text-xs text-slate-600">VocalMarket AI · Powered by Enthusiast</p>
+</div>
+
+<!-- ═══════════════════════════════ SHELL (all authenticated pages) ════════════ -->
+<div id="shell" class="hidden h-screen flex overflow-hidden">
+
+  <!-- Sidebar -->
+  <aside class="w-60 flex-shrink-0 flex flex-col bg-slate-900 border-r border-slate-800">
+    <div class="h-16 flex items-center gap-2.5 border-b border-slate-800 px-5">
+      <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
+        <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+      </div>
+      <span class="text-sm font-semibold">VocalMarket</span>
+    </div>
+    <nav class="flex-1 px-3 py-4 space-y-0.5">
+      <button onclick="goTo('home')" data-page="home" class="nav-item w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 text-left">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
+        Home
+      </button>
+      <button onclick="goTo('chat')" data-page="chat" class="nav-item w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 text-left">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"/></svg>
+        Chat
+      </button>
+      <button onclick="goTo('conversations')" data-page="conversations" class="nav-item w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 text-left">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155"/></svg>
+        Conversations
+      </button>
+      <button onclick="goTo('orders')" data-page="orders" class="nav-item w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 text-left">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"/></svg>
+        Orders
+      </button>
+    </nav>
+    <div class="border-t border-slate-800 px-3 py-4 space-y-0.5">
+      <button onclick="goTo('settings')" data-page="settings" class="nav-item w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 text-left">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        Settings
+      </button>
+      <button onclick="goTo('login')" class="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 transition-colors text-left">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
+        Sign out
+      </button>
+      <div class="mt-2 flex items-center gap-3 rounded-lg bg-slate-800/50 px-3 py-2.5">
+        <div class="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-semibold">K</div>
+        <div class="min-w-0">
+          <p class="text-xs font-medium text-slate-200 truncate">Khaya Ndlovu</p>
+          <p class="text-xs text-slate-500 truncate">khaya@vocalmarket.ai</p>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main content area -->
+  <main class="flex-1 overflow-y-auto">
+
+    <!-- HOME PAGE -->
+    <div id="page-home" class="page px-8 py-8 min-h-full bg-slate-950">
+      <div class="mb-8">
+        <h1 class="text-2xl font-semibold text-slate-100">Good morning, Khaya</h1>
+        <p class="mt-1 text-sm text-slate-400">Select a vertical to start a conversation</p>
+      </div>
+      <div class="grid gap-4 grid-cols-3 mb-8">
+        <!-- Grocery -->
+        <button onclick="goTo('chat'); setVertical('grocery')" class="card-hover group flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-6 text-left">
+          <div class="flex items-start justify-between">
+            <div class="w-11 h-11 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 group-hover:text-indigo-400 transition-colors">
+              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"/></svg>
+            </div>
+            <span class="badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Consumer</span>
+          </div>
+          <div>
+            <h2 class="font-semibold text-slate-100">Grocery</h2>
+            <p class="mt-1 text-sm text-slate-400 leading-relaxed">Voice-first grocery shopping with same-day delivery</p>
+          </div>
+          <div class="flex items-center gap-1.5 text-xs font-medium text-indigo-400">
+            Start conversation
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+          </div>
+        </button>
+        <!-- B2B -->
+        <button onclick="goTo('chat'); setVertical('b2b')" class="card-hover group flex flex-col gap-4 rounded-2xl border border-indigo-500/30 bg-slate-800/40 p-6 text-left relative">
+          <div class="absolute right-3 top-3 w-2 h-2 rounded-full bg-indigo-400"></div>
+          <div class="flex items-start justify-between">
+            <div class="w-11 h-11 rounded-xl bg-slate-800 flex items-center justify-center text-indigo-400 transition-colors">
+              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21"/></svg>
+            </div>
+            <span class="badge bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Enterprise</span>
+          </div>
+          <div>
+            <h2 class="font-semibold text-slate-100">B2B Procurement</h2>
+            <p class="mt-1 text-sm text-slate-400 leading-relaxed">AI-powered supplier discovery and RFQ management</p>
+          </div>
+          <div class="flex items-center gap-1.5 text-xs font-medium text-indigo-400">
+            Start conversation
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+          </div>
+        </button>
+        <!-- Healthcare -->
+        <button onclick="goTo('chat'); setVertical('healthcare')" class="card-hover group flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-6 text-left">
+          <div class="flex items-start justify-between">
+            <div class="w-11 h-11 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 group-hover:text-indigo-400 transition-colors">
+              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z"/></svg>
+            </div>
+            <span class="badge bg-amber-500/10 text-amber-400 border border-amber-500/20">Regulated</span>
+          </div>
+          <div>
+            <h2 class="font-semibold text-slate-100">Healthcare</h2>
+            <p class="mt-1 text-sm text-slate-400 leading-relaxed">Compliant prescription and OTC ordering</p>
+          </div>
+          <div class="flex items-center gap-1.5 text-xs font-medium text-indigo-400">
+            Start conversation
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+          </div>
+        </button>
+      </div>
+      <!-- Quick links -->
+      <div class="grid grid-cols-2 gap-3">
+        <button onclick="goTo('conversations')" class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3.5 hover:border-slate-700 hover:bg-slate-800/60 transition-all text-left">
+          <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155"/></svg>
+          </div>
+          <div><p class="text-sm font-medium text-slate-200">Recent conversations</p><p class="text-xs text-slate-500">View your history</p></div>
+          <svg class="ml-auto w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+        <button onclick="goTo('orders')" class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3.5 hover:border-slate-700 hover:bg-slate-800/60 transition-all text-left">
+          <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"/></svg>
+          </div>
+          <div><p class="text-sm font-medium text-slate-200">Order history</p><p class="text-xs text-slate-500">Track your purchases</p></div>
+          <svg class="ml-auto w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- CHAT PAGE -->
+    <div id="page-chat" class="page flex flex-col h-full bg-slate-950">
+      <div id="chat-topbar" class="flex h-14 items-center justify-between border-b border-slate-800 bg-slate-900 px-4 flex-shrink-0">
+        <div class="flex items-center gap-2.5">
+          <span id="chat-badge" class="badge bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">B2B Procurement</span>
+          <span class="text-xs text-slate-500">·</span>
+          <span class="text-xs text-slate-500">Live session</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <select id="vertical-select" onchange="switchVertical(this.value)" class="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-300 outline-none">
+            <option value="grocery">Grocery</option>
+            <option value="b2b" selected>B2B Procurement</option>
+            <option value="healthcare">Healthcare</option>
+          </select>
+          <div class="flex rounded-lg border border-slate-700 bg-slate-800 p-0.5">
+            <button onclick="setMode('voice')" id="btn-voice" class="rounded-md px-3 py-1 text-xs font-medium bg-slate-700 text-slate-100 transition-colors">Voice</button>
+            <button onclick="setMode('text')" id="btn-text" class="rounded-md px-3 py-1 text-xs font-medium text-slate-500 hover:text-slate-300 transition-colors">Text</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Voice mode -->
+      <div id="voice-mode" class="flex flex-col flex-1 overflow-hidden">
+        <div id="message-list" class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+          <div class="flex justify-start msg-in">
+            <div class="max-w-sm rounded-2xl rounded-bl-sm bg-slate-800 border border-slate-700 px-4 py-3 text-sm leading-relaxed">
+              <p class="text-slate-100">Welcome to VocalMarket B2B. Tell me what you need to source.</p>
+            </div>
+          </div>
+          <div class="flex justify-end msg-in">
+            <div class="max-w-sm rounded-2xl rounded-br-sm bg-indigo-600 px-4 py-3 text-sm leading-relaxed text-white">
+              I need 5,000 M8 steel bolts, ISO 9001 certified, delivery under 14 days to Johannesburg
+            </div>
+          </div>
+          <div class="flex justify-start msg-in">
+            <div class="max-w-sm rounded-2xl rounded-bl-sm bg-slate-800 border border-slate-700 px-4 py-3 text-sm leading-relaxed">
+              <p class="text-slate-100 mb-3">Found 3 ISO 9001 certified fastener suppliers near Johannesburg. Here are the top matches by reliability score:</p>
+              <div class="space-y-2">
+                <div class="rounded-lg border border-slate-600 bg-slate-700/50 p-2.5 text-xs">
+                  <div class="flex justify-between items-center">
+                    <span class="font-semibold text-slate-100">Cape Fasteners (Pty) Ltd</span>
+                    <span class="badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">94% reliable</span>
+                  </div>
+                  <p class="text-slate-400 mt-1">MOQ: 1,000 units · Lead time: 7 days · R0.89/unit</p>
+                </div>
+                <div class="rounded-lg border border-slate-600 bg-slate-700/50 p-2.5 text-xs">
+                  <div class="flex justify-between items-center">
+                    <span class="font-semibold text-slate-100">JHB Steel Components</span>
+                    <span class="badge bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">88% reliable</span>
+                  </div>
+                  <p class="text-slate-400 mt-1">MOQ: 500 units · Lead time: 10 days · R0.95/unit</p>
+                </div>
+              </div>
+              <div class="mt-3 flex gap-2">
+                <button class="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs text-white hover:bg-indigo-500 transition-colors">Send RFQ</button>
+                <button class="rounded-lg border border-slate-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700 transition-colors">See all 3</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Voice controls -->
+        <div class="border-t border-slate-800 bg-slate-900 px-6 py-6 flex flex-col items-center gap-4 flex-shrink-0">
+          <!-- Waveform -->
+          <div id="waveform" class="flex items-end gap-1 h-8 opacity-30">
+            <div class="w-1 bg-emerald-500 rounded-full h-2 transition-all duration-100"></div>
+            <div class="w-1 bg-emerald-500 rounded-full h-4 transition-all duration-100"></div>
+            <div class="w-1 bg-emerald-500 rounded-full h-6 transition-all duration-100"></div>
+            <div class="w-1 bg-emerald-500 rounded-full h-3 transition-all duration-100"></div>
+            <div class="w-1 bg-emerald-500 rounded-full h-8 transition-all duration-100"></div>
+            <div class="w-1 bg-emerald-500 rounded-full h-5 transition-all duration-100"></div>
+            <div class="w-1 bg-emerald-500 rounded-full h-4 transition-all duration-100"></div>
+            <div class="w-1 bg-emerald-500 rounded-full h-7 transition-all duration-100"></div>
+            <div class="w-1 bg-emerald-500 rounded-full h-3 transition-all duration-100"></div>
+            <div class="w-1 bg-emerald-500 rounded-full h-5 transition-all duration-100"></div>
+            <div class="w-1 bg-emerald-500 rounded-full h-2 transition-all duration-100"></div>
+            <div class="w-1 bg-emerald-500 rounded-full h-4 transition-all duration-100"></div>
+          </div>
+          <button id="mic-btn" onclick="toggleMic()" class="mic-btn relative w-20 h-20 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center hover:bg-slate-700 transition-all">
+            <svg id="mic-icon" class="w-8 h-8 text-slate-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+          </button>
+          <span id="mic-label" class="text-sm text-slate-500">Tap to speak</span>
+        </div>
+      </div>
+
+      <!-- Text mode -->
+      <div id="text-mode" class="hidden flex flex-col flex-1 overflow-hidden">
+        <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+          <p class="text-center text-sm text-slate-600 mt-12">Type a message to start the conversation</p>
+        </div>
+        <form onsubmit="sendTextMsg(event)" class="flex items-end gap-2 border-t border-slate-800 bg-slate-900 px-4 py-3 flex-shrink-0">
+          <textarea id="text-input" rows="1" placeholder="Type a message…" class="flex-1 resize-none rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 outline-none focus:border-indigo-500"></textarea>
+          <button type="submit" class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center hover:bg-indigo-500 transition-colors">
+            <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/></svg>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- CONVERSATIONS PAGE -->
+    <div id="page-conversations" class="page px-8 py-8 min-h-full bg-slate-950">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-xl font-semibold text-slate-100">Conversations</h1>
+          <p class="mt-1 text-sm text-slate-400">Your conversation history across all channels</p>
+        </div>
+        <button onclick="goTo('chat')" class="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+          New chat
+        </button>
+      </div>
+      <div class="space-y-2">
+        <button onclick="goTo('chat')" class="w-full rounded-xl border border-slate-800 bg-slate-900 p-4 hover:border-slate-700 hover:bg-slate-800/60 transition-all text-left group">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3">
+              <div class="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center text-indigo-400 flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21"/></svg>
+              </div>
+              <div>
+                <div class="flex items-center gap-2"><span class="badge bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">B2B Procurement</span><span class="text-xs text-slate-500">14 messages</span></div>
+                <p class="mt-1.5 text-sm text-slate-400">Found 3 ISO 9001 certified bolt suppliers under R45,000</p>
+              </div>
+            </div>
+            <div class="text-right flex-shrink-0">
+              <p class="text-xs text-slate-500">2h ago</p>
+              <svg class="ml-auto mt-2 w-4 h-4 text-slate-600 group-hover:text-slate-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </div>
+          </div>
+        </button>
+        <button onclick="goTo('chat')" class="w-full rounded-xl border border-slate-800 bg-slate-900 p-4 hover:border-slate-700 hover:bg-slate-800/60 transition-all text-left group">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3">
+              <div class="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center text-emerald-400 flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"/></svg>
+              </div>
+              <div>
+                <div class="flex items-center gap-2"><span class="badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Grocery</span><span class="text-xs text-slate-500">6 messages</span></div>
+                <p class="mt-1.5 text-sm text-slate-400">Milk 2L is R32.99, available for same-day delivery</p>
+              </div>
+            </div>
+            <div class="text-right flex-shrink-0">
+              <p class="text-xs text-slate-500">1d ago</p>
+              <svg class="ml-auto mt-2 w-4 h-4 text-slate-600 group-hover:text-slate-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </div>
+          </div>
+        </button>
+        <button onclick="goTo('chat')" class="w-full rounded-xl border border-slate-800 bg-slate-900 p-4 hover:border-slate-700 hover:bg-slate-800/60 transition-all text-left group">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3">
+              <div class="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center text-amber-400 flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z"/></svg>
+              </div>
+              <div>
+                <div class="flex items-center gap-2"><span class="badge bg-amber-500/10 text-amber-400 border border-amber-500/20">Healthcare</span><span class="text-xs text-slate-500">4 messages</span></div>
+                <p class="mt-1.5 text-sm text-slate-400">Ibuprofen 200mg available OTC, no prescription required</p>
+              </div>
+            </div>
+            <div class="text-right flex-shrink-0">
+              <p class="text-xs text-slate-500">2d ago</p>
+              <svg class="ml-auto mt-2 w-4 h-4 text-slate-600 group-hover:text-slate-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </div>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <!-- ORDERS PAGE -->
+    <div id="page-orders" class="page px-8 py-8 min-h-full bg-slate-950">
+      <div class="mb-6">
+        <h1 class="text-xl font-semibold text-slate-100">Orders</h1>
+        <p class="mt-1 text-sm text-slate-400">Your purchase history across all verticals</p>
+      </div>
+      <div class="grid gap-4" style="grid-template-columns:1fr 320px">
+        <div class="space-y-3">
+          <button onclick="selectOrder('b2b')" id="order-b2b" class="w-full rounded-xl border border-indigo-500/40 bg-slate-800/60 p-4 text-left transition-all">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-sm font-medium text-slate-100">#3F8A1B2C</span>
+                  <span class="badge bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">confirmed</span>
+                  <span class="badge bg-slate-800 text-slate-300 border border-slate-700">B2B Procurement</span>
+                </div>
+                <p class="mt-1.5 text-xs text-slate-500">15 Jun 2026</p>
+                <p class="mt-1 text-xs text-slate-400">1 item</p>
+              </div>
+              <p class="text-sm font-semibold text-slate-100 flex-shrink-0">R 45,000.00</p>
+            </div>
+          </button>
+          <button onclick="selectOrder('grocery')" id="order-grocery" class="w-full rounded-xl border border-slate-800 bg-slate-900 p-4 text-left hover:border-slate-700 hover:bg-slate-800/40 transition-all">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-sm font-medium text-slate-100">#7C4E9D1A</span>
+                  <span class="badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">delivered</span>
+                  <span class="badge bg-slate-800 text-slate-300 border border-slate-700">Grocery</span>
+                </div>
+                <p class="mt-1.5 text-xs text-slate-500">13 Jun 2026</p>
+                <p class="mt-1 text-xs text-slate-400">3 items</p>
+              </div>
+              <p class="text-sm font-semibold text-slate-100 flex-shrink-0">R 287.45</p>
+            </div>
+          </button>
+        </div>
+        <!-- Detail panel -->
+        <div id="order-detail" class="rounded-xl border border-slate-800 bg-slate-900 p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-semibold text-slate-100">#3F8A1B2C</h2>
+          </div>
+          <div class="space-y-1.5 text-xs text-slate-400 mb-4">
+            <div class="flex justify-between"><span>Status</span><span class="badge bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">confirmed</span></div>
+            <div class="flex justify-between"><span>Vertical</span><span class="text-slate-300">B2B Procurement</span></div>
+            <div class="flex justify-between"><span>Placed</span><span class="text-slate-300">15 Jun 2026</span></div>
+          </div>
+          <div class="border-t border-slate-800 pt-4">
+            <p class="text-xs font-medium text-slate-400 mb-3">Items</p>
+            <div id="order-items" class="space-y-2">
+              <div class="flex items-center justify-between">
+                <div><p class="text-xs text-slate-200">M8 Steel Bolts ISO 9001 (5,000 units)</p><p class="text-xs text-slate-500">×1</p></div>
+                <p class="text-xs font-medium text-slate-300 ml-2">R 45,000.00</p>
+              </div>
+            </div>
+          </div>
+          <div class="mt-4 flex items-center justify-between border-t border-slate-800 pt-4">
+            <span class="text-sm font-medium text-slate-300">Total</span>
+            <span id="order-total" class="text-sm font-semibold text-slate-100">R 45,000.00</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS PAGE -->
+    <div id="page-settings" class="page px-8 py-8 min-h-full bg-slate-950">
+      <div class="mb-8">
+        <h1 class="text-xl font-semibold text-slate-100">Settings</h1>
+        <p class="mt-1 text-sm text-slate-400">Manage your account and preferences</p>
+      </div>
+      <div class="max-w-lg space-y-6">
+        <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+          <div class="mb-5"><h2 class="text-sm font-semibold text-slate-100">Profile</h2><p class="text-xs text-slate-500 mt-0.5">Your display name shown in conversations</p></div>
+          <div class="space-y-4">
+            <div><label class="block text-xs font-medium text-slate-400 mb-1.5">Email address</label><input type="email" value="khaya@vocalmarket.ai" disabled class="w-full rounded-lg border border-slate-700 bg-slate-800/50 px-3.5 py-2.5 text-sm text-slate-500 cursor-not-allowed"/></div>
+            <div><label class="block text-xs font-medium text-slate-400 mb-1.5">Display name</label><input type="text" value="Khaya Ndlovu" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2.5 text-sm text-slate-100 outline-none focus:border-indigo-500"/></div>
+            <div class="flex justify-end"><button class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors">Save changes</button></div>
+          </div>
+        </div>
+        <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+          <div class="mb-5"><h2 class="text-sm font-semibold text-slate-100">Preferences</h2><p class="text-xs text-slate-500 mt-0.5">Default settings applied to new conversations</p></div>
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1.5">Default vertical</label>
+            <select class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2.5 text-sm text-slate-100 outline-none">
+              <option value="grocery">Grocery</option>
+              <option value="b2b" selected>B2B Procurement</option>
+              <option value="healthcare">Healthcare</option>
+            </select>
+            <p class="mt-1.5 text-xs text-slate-500">Applied when opening Chat without a specific vertical</p>
+          </div>
+        </div>
+        <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+          <div class="mb-5"><h2 class="text-sm font-semibold text-slate-100">Organisation</h2><p class="text-xs text-slate-500 mt-0.5">Your team account details</p></div>
+          <div class="rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-3 space-y-2">
+            <div class="flex justify-between text-sm"><span class="text-slate-400">Org ID</span><span class="font-mono text-xs text-slate-300">org_vocalmarket_za</span></div>
+            <div class="flex justify-between text-sm"><span class="text-slate-400">Role</span><span class="text-slate-300 capitalize">Procurement Manager</span></div>
+            <div class="flex justify-between text-sm"><span class="text-slate-400">Spend limit</span><span class="text-slate-300">R 50,000 / order</span></div>
+          </div>
+        </div>
+        <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+          <div class="mb-5"><h2 class="text-sm font-semibold text-slate-100">Sign out</h2><p class="text-xs text-slate-500 mt-0.5">End your current session on this device</p></div>
+          <button onclick="goTo('login')" class="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/20 transition-colors">Sign out of VocalMarket</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  let currentPage = 'login';
+  let micActive = false;
+  let waveInterval = null;
+  let currentVertical = 'b2b';
+
+  const orderData = {
+    b2b: {
+      id: '#3F8A1B2C', status: 'confirmed', statusClass: 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20',
+      vertical: 'B2B Procurement', date: '15 Jun 2026', total: 'R 45,000.00',
+      items: [{ name: 'M8 Steel Bolts ISO 9001 (5,000 units)', qty: 1, total: 'R 45,000.00' }]
+    },
+    grocery: {
+      id: '#7C4E9D1A', status: 'delivered', statusClass: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
+      vertical: 'Grocery', date: '13 Jun 2026', total: 'R 287.45',
+      items: [
+        { name: 'Full Cream Milk 2L', qty: 3, total: 'R 98.97' },
+        { name: 'Brown Bread', qty: 2, total: 'R 37.00' },
+        { name: 'Chicken Breasts 1kg', qty: 2, total: 'R 179.98' }
+      ]
+    }
+  };
+
+  const verticalLabels = { grocery: 'Grocery', b2b: 'B2B Procurement', healthcare: 'Healthcare' };
+  const verticalBadgeClass = {
+    grocery: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
+    b2b: 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20',
+    healthcare: 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+  };
+
+  function goTo(page) {
+    const loginEl = document.getElementById('page-login');
+    const shellEl = document.getElementById('shell');
+
+    if (page === 'login') {
+      loginEl.style.display = 'flex';
+      shellEl.style.display = 'none';
+    } else {
+      loginEl.style.display = 'none';
+      shellEl.style.display = 'flex';
+      document.querySelectorAll('#shell main > div').forEach(p => p.classList.remove('active'));
+      const el = document.getElementById('page-' + page);
+      if (el) el.classList.add('active');
+      document.querySelectorAll('.nav-item').forEach(n => {
+        n.classList.remove('active');
+        if (n.dataset.page === page) n.classList.add('active');
+      });
+    }
+    currentPage = page;
+    if (micActive && page !== 'chat') stopMic();
+  }
+
+  function setVertical(v) {
+    currentVertical = v;
+    document.getElementById('vertical-select').value = v;
+    const badge = document.getElementById('chat-badge');
+    badge.className = 'badge ' + verticalBadgeClass[v];
+    badge.textContent = verticalLabels[v];
+  }
+
+  function switchVertical(v) {
+    setVertical(v);
+  }
+
+  function setMode(mode) {
+    const voiceEl = document.getElementById('voice-mode');
+    const textEl = document.getElementById('text-mode');
+    const btnVoice = document.getElementById('btn-voice');
+    const btnText = document.getElementById('btn-text');
+    if (mode === 'voice') {
+      voiceEl.style.display = 'flex';
+      textEl.style.display = 'none';
+      btnVoice.className = 'rounded-md px-3 py-1 text-xs font-medium bg-slate-700 text-slate-100 transition-colors';
+      btnText.className = 'rounded-md px-3 py-1 text-xs font-medium text-slate-500 hover:text-slate-300 transition-colors';
+    } else {
+      voiceEl.style.display = 'none';
+      textEl.style.display = 'flex';
+      btnText.className = 'rounded-md px-3 py-1 text-xs font-medium bg-slate-700 text-slate-100 transition-colors';
+      btnVoice.className = 'rounded-md px-3 py-1 text-xs font-medium text-slate-500 hover:text-slate-300 transition-colors';
+      if (micActive) stopMic();
+    }
+  }
+
+  function toggleMic() {
+    micActive ? stopMic() : startMic();
+  }
+
+  function startMic() {
+    micActive = true;
+    const btn = document.getElementById('mic-btn');
+    const lbl = document.getElementById('mic-label');
+    const wf = document.getElementById('waveform');
+    btn.classList.add('listening');
+    btn.style.borderColor = '#10b981';
+    lbl.textContent = 'Listening… tap to stop';
+    lbl.className = 'text-sm text-emerald-400';
+    wf.style.opacity = '1';
+    animateWaveform();
+    setTimeout(() => { if (micActive) stopMic(true); }, 3500);
+  }
+
+  function stopMic(autoProcess = false) {
+    micActive = false;
+    const btn = document.getElementById('mic-btn');
+    const lbl = document.getElementById('mic-label');
+    const wf = document.getElementById('waveform');
+    btn.classList.remove('listening');
+    btn.style.borderColor = '';
+    if (waveInterval) { clearInterval(waveInterval); waveInterval = null; }
+    wf.style.opacity = '0.3';
+    resetWaveform();
+    if (autoProcess) {
+      lbl.textContent = 'Processing…';
+      lbl.className = 'text-sm text-indigo-400';
+      setTimeout(showDemoResponse, 1200);
+    } else {
+      lbl.textContent = 'Tap to speak';
+      lbl.className = 'text-sm text-slate-500';
+    }
+  }
+
+  function animateWaveform() {
+    const bars = document.querySelectorAll('#waveform > div');
+    waveInterval = setInterval(() => {
+      bars.forEach(bar => {
+        const h = Math.floor(Math.random() * 28) + 4;
+        bar.style.height = h + 'px';
+      });
+    }, 120);
+  }
+
+  function resetWaveform() {
+    document.querySelectorAll('#waveform > div').forEach((bar, i) => {
+      const heights = [8,16,24,12,32,20,16,28,12,20,8,16];
+      bar.style.height = (heights[i] || 8) + 'px';
+    });
+  }
+
+  function showDemoResponse() {
+    const lbl = document.getElementById('mic-label');
+    lbl.textContent = 'Tap to speak';
+    lbl.className = 'text-sm text-slate-500';
+    const list = document.getElementById('message-list');
+    const userMsg = document.createElement('div');
+    userMsg.className = 'flex justify-end msg-in';
+    userMsg.innerHTML = '<div class="max-w-sm rounded-2xl rounded-br-sm bg-indigo-600 px-4 py-3 text-sm leading-relaxed text-white">Get me pricing on 200 hydraulic cylinders, 50mm bore</div>';
+    list.appendChild(userMsg);
+    list.scrollTop = list.scrollHeight;
+    setTimeout(() => {
+      const aiMsg = document.createElement('div');
+      aiMsg.className = 'flex justify-start msg-in';
+      aiMsg.innerHTML = `<div class="max-w-sm rounded-2xl rounded-bl-sm bg-slate-800 border border-slate-700 px-4 py-3 text-sm leading-relaxed">
+        <p class="text-slate-100 mb-3">Found 2 suppliers stocking 50mm bore hydraulic cylinders. Sending RFQ to both now.</p>
+        <div class="space-y-2">
+          <div class="rounded-lg border border-slate-600 bg-slate-700/50 p-2.5 text-xs">
+            <div class="flex justify-between"><span class="font-semibold text-slate-100">Hydro SA Components</span><span class="badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">91% reliable</span></div>
+            <p class="text-slate-400 mt-1">Est. R 1,850/unit · Lead time 12 days</p>
+          </div>
+        </div>
+        <div class="mt-3 flex gap-2">
+          <button class="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs text-white hover:bg-indigo-500">Confirm RFQ</button>
+          <button class="rounded-lg border border-slate-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700">Cancel</button>
+        </div>
+      </div>`;
+      list.appendChild(aiMsg);
+      list.scrollTop = list.scrollHeight;
+    }, 900);
+  }
+
+  function sendTextMsg(e) {
+    e.preventDefault();
+    const input = document.getElementById('text-input');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+  }
+
+  function selectOrder(key) {
+    const data = orderData[key];
+    document.getElementById('order-b2b').className = key === 'b2b'
+      ? 'w-full rounded-xl border border-indigo-500/40 bg-slate-800/60 p-4 text-left transition-all'
+      : 'w-full rounded-xl border border-slate-800 bg-slate-900 p-4 text-left hover:border-slate-700 hover:bg-slate-800/40 transition-all';
+    document.getElementById('order-grocery').className = key === 'grocery'
+      ? 'w-full rounded-xl border border-indigo-500/40 bg-slate-800/60 p-4 text-left transition-all'
+      : 'w-full rounded-xl border border-slate-800 bg-slate-900 p-4 text-left hover:border-slate-700 hover:bg-slate-800/40 transition-all';
+    const detail = document.getElementById('order-detail');
+    detail.querySelector('h2').textContent = data.id;
+    const rows = detail.querySelectorAll('.space-y-1\\.5 > div');
+    rows[0].innerHTML = `<span>Status</span><span class="badge ${data.statusClass}">${data.status}</span>`;
+    rows[1].innerHTML = `<span>Vertical</span><span class="text-slate-300">${data.vertical}</span>`;
+    rows[2].innerHTML = `<span>Placed</span><span class="text-slate-300">${data.date}</span>`;
+    document.getElementById('order-items').innerHTML = data.items.map(i =>
+      `<div class="flex items-center justify-between"><div><p class="text-xs text-slate-200">${i.name}</p><p class="text-xs text-slate-500">×${i.qty}</p></div><p class="text-xs font-medium text-slate-300 ml-2">${i.total}</p></div>`
+    ).join('');
+    document.getElementById('order-total').textContent = data.total;
+  }
+
+  // Init
+  document.getElementById('page-login').style.display = 'flex';
+  document.getElementById('shell').style.display = 'none';
+  document.getElementById('voice-mode').style.display = 'flex';
+  document.getElementById('text-mode').style.display = 'none';
+  resetWaveform();
+</script>
+</body>
+</html>
