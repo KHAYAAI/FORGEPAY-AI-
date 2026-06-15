@@ -26,10 +26,16 @@ class MessagingSettings(BaseSettings):
     # an in-process dict when unset (fine for a single replica / dev).
     redis_url: str = ""
 
+    # ── Voice service (TTS for voice-note replies) ────────────────────────────
+    voice_service_url: str = "http://voice:8003"
+
     # ── Telegram ──────────────────────────────────────────────────────────────
     telegram_bot_token: str = ""
     # Secret echoed by Telegram in the X-Telegram-Bot-Api-Secret-Token header.
     telegram_webhook_secret: str = ""
+    # Stripe / other payment provider token from BotFather → Payments.
+    # Set to enable in-chat invoice checkout. Leave empty to disable payments.
+    telegram_payment_provider_token: str = ""
 
     # ── WhatsApp (Meta Cloud API) ─────────────────────────────────────────────
     whatsapp_access_token: str = ""

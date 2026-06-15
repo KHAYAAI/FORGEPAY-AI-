@@ -68,12 +68,31 @@ class ProductLine:
 
 
 @dataclass
+class PaymentRequest:
+    """
+    A payment invoice the channel should present to the user for in-chat checkout.
+
+    `amount_cents` is in the smallest unit of `currency` (e.g. South African cents
+    for ZAR). `order_payload` is an opaque string passed back to the bot in the
+    successful_payment event and forwarded to the payments service.
+    """
+
+    title: str
+    description: str
+    amount_cents: int
+    currency: str = "ZAR"
+    order_payload: str = ""
+
+
+@dataclass
 class OutboundMessage:
     """The reply to send back to the user on their originating channel."""
 
     text: str
     suggestions: list[Suggestion] = field(default_factory=list)
     products: list[ProductLine] = field(default_factory=list)
+    # Set by the bridge when the orchestrator requests an in-chat payment.
+    payment_request: PaymentRequest | None = None
 
     def to_plain_text(self, max_len: int | None = None) -> str:
         """

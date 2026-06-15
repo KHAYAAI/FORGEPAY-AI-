@@ -15,7 +15,7 @@ import logging
 import httpx
 
 from .config import settings
-from .models import Channel, InboundMessage, OutboundMessage, ProductLine, Suggestion
+from .models import Channel, InboundMessage, OutboundMessage, PaymentRequest, ProductLine, Suggestion
 from .sessions import SessionStore, store as default_store
 
 logger = logging.getLogger(__name__)
@@ -145,10 +145,22 @@ class ConversationBridge:
             label = a.get("label") or a.get("title") or a.get("type") or "Action"
             payload = a.get("payload") or a.get("action") or a.get("type") or label
             suggestions.append(Suggestion(label=str(label)[:24], payload=str(payload)[:64]))
+
+        payment_request: PaymentRequest | None = None
+        if pr := data.get("payment_request"):
+            payment_request = PaymentRequest(
+                title=str(pr.get("title", "Order"))[:32],
+                description=str(pr.get("description", ""))[:255],
+                amount_cents=int(pr.get("amount_cents", 0)),
+                currency=str(pr.get("currency", "ZAR")),
+                order_payload=str(pr.get("payload", "")),
+            )
+
         return OutboundMessage(
             text=data.get("text", ""),
             products=products,
             suggestions=suggestions,
+            payment_request=payment_request,
         )
 
     @staticmethod
