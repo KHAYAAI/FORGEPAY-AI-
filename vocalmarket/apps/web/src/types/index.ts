@@ -15,6 +15,15 @@ export interface Product {
   currency: string;
   inStock: boolean;
   isCurated?: boolean;
+  category?: string;
+  emoji?: string;
+  rating?: number;
+  unit?: string;
+}
+
+export interface CartItem {
+  product: Product;
+  quantity: number;
 }
 
 export interface AgentResponse {

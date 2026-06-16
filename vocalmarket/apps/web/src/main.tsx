@@ -7,11 +7,14 @@ import {
 } from "react-router-dom";
 import "./index.css";
 import { AppContextProvider } from "@/contexts/AppContext";
+import { CartContextProvider } from "@/contexts/CartContext";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { AppShell } from "@/components/layout/AppShell";
 import { isAuthenticated } from "@/lib/auth";
 import LoginPage from "@/pages/login";
 import HomePage from "@/pages/home";
+import ShopPage from "@/pages/shop";
+import CheckoutPage from "@/pages/checkout";
 import ChatPage from "@/pages/chat";
 import OrdersPage from "@/pages/orders";
 import ConversationsPage from "@/pages/conversations";
@@ -39,6 +42,8 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/home" replace /> },
       { path: "home", element: <HomePage /> },
+      { path: "shop", element: <ShopPage /> },
+      { path: "checkout", element: <CheckoutPage /> },
       { path: "chat", element: <ChatPage /> },
       { path: "chat/:vertical", element: <ChatPage /> },
       { path: "orders", element: <OrdersPage /> },
@@ -55,7 +60,9 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ErrorBoundary>
       <AppContextProvider>
-        <RouterProvider router={router} />
+        <CartContextProvider>
+          <RouterProvider router={router} />
+        </CartContextProvider>
       </AppContextProvider>
     </ErrorBoundary>
   </StrictMode>

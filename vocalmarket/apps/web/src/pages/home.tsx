@@ -58,6 +58,10 @@ export default function HomePage() {
 
   function handleLaunch(v: Vertical) {
     setVertical(v);
+    if (v === "grocery") {
+      navigate("/shop");
+      return;
+    }
     navigate(`/chat/${v}`);
   }
 
@@ -107,7 +111,7 @@ export default function HomePage() {
             </div>
 
             <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-400 group-hover:text-indigo-300">
-              Start conversation
+              {v.id === "grocery" ? "Browse products" : "Start conversation"}
               <svg className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
               </svg>

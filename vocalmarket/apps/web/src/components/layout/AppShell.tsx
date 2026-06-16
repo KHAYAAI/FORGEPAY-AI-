@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { ToastContainer } from "@/components/ui/Toast";
+import { CartDrawer, CartButton } from "@/components/commerce/CartDrawer";
 
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -55,6 +56,8 @@ export function AppShell() {
         </main>
       </div>
 
+      <CartButton />
+      <CartDrawer />
       <ToastContainer />
     </div>
   );
