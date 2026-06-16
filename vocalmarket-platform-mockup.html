@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VocalMarket — Platform Mockup</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .nav-link.active { background: #1e293b; color: #fff; }
+  .cart-drawer { transform: translateX(100%); transition: transform .3s ease; }
+  .cart-drawer.open { transform: translateX(0); }
+  .cart-overlay { display: none; }
+  .cart-overlay.open { display: block; }
+  .toast { animation: slideUp .25s ease; }
+  @keyframes slideUp { from { opacity:0; transform: translateY(10px);} to {opacity:1; transform: translateY(0);} }
+  .listening-ring { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,.5);} 50% { box-shadow: 0 0 0 14px rgba(99,102,241,0);} }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-thumb { background: #334155; border-radius: 8px; }
+</style>
+</head>
+<body class="bg-slate-950 text-slate-100">
+
+<!-- ============ LOGIN SCREEN ============ -->
+<div id="screen-login" class="screen active min-h-screen flex items-center justify-center px-4">
+  <div class="w-full max-w-sm">
+    <div class="mb-8 flex flex-col items-center text-center">
+      <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600">
+        <svg class="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+      </div>
+      <h1 class="text-lg font-semibold text-slate-100">VocalMarket</h1>
+      <p class="mt-1 text-sm text-slate-400">Sign in to your account</p>
+    </div>
+    <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6 space-y-4">
+      <div>
+        <label class="mb-1.5 block text-xs font-medium text-slate-400">Email address</label>
+        <input id="login-email" type="email" value="amara@vocalmarket.ai" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"/>
+      </div>
+      <div>
+        <label class="mb-1.5 block text-xs font-medium text-slate-400">Password</label>
+        <input id="login-password" type="password" value="••••••••" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"/>
+      </div>
+      <button onclick="login()" class="w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500">Sign in</button>
+      <p class="text-center text-xs text-slate-500">Demo mockup — any credentials work</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP SHELL (post-login) ============ -->
+<div id="app-shell" class="hidden h-screen overflow-hidden bg-slate-950">
+  <div class="flex h-full">
+
+    <!-- Sidebar -->
+    <aside class="flex h-full w-60 shrink-0 flex-col border-r border-slate-800 bg-slate-900">
+      <div class="flex h-16 items-center gap-2.5 border-b border-slate-800 px-5">
+        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
+          <svg class="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+        </div>
+        <span class="text-sm font-semibold">VocalMarket</span>
+      </div>
+      <nav class="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
+        <a data-nav="home" onclick="navigate('home')" class="nav-link flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 cursor-pointer">🏠 Home</a>
+        <a data-nav="shop" onclick="navigate('shop')" class="nav-link flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 cursor-pointer">🛒 Shop</a>
+        <a data-nav="chat" onclick="navigate('chat')" class="nav-link flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 cursor-pointer">💬 Chat</a>
+        <a data-nav="conversations" onclick="navigate('conversations')" class="nav-link flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 cursor-pointer">🗂️ Conversations</a>
+        <a data-nav="orders" onclick="navigate('orders')" class="nav-link flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 cursor-pointer">📦 Orders</a>
+      </nav>
+      <div class="space-y-0.5 border-t border-slate-800 px-3 py-4">
+        <a data-nav="settings" onclick="navigate('settings')" class="nav-link flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 cursor-pointer">⚙️ Settings</a>
+        <a onclick="logout()" class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 cursor-pointer">🚪 Sign out</a>
+        <div class="mt-2 flex items-center gap-3 rounded-lg bg-slate-800/50 px-3 py-2.5">
+          <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold">A</div>
+          <div class="min-w-0">
+            <p class="truncate text-xs font-medium text-slate-200">Amara Okafor</p>
+            <p class="truncate text-xs text-slate-500">amara@vocalmarket.ai</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="relative flex-1 overflow-y-auto">
+
+      <!-- HOME -->
+      <div id="screen-home" class="screen active min-h-full px-4 py-8 sm:px-8">
+        <h1 class="text-2xl font-semibold">Good afternoon, Amara</h1>
+        <p class="mt-1 text-sm text-slate-400">Select a vertical to start</p>
+        <div class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <button onclick="navigate('shop')" class="group flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-6 text-left transition hover:border-indigo-500/50 hover:bg-slate-800/60">
+            <div class="flex items-start justify-between">
+              <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-800 text-xl">🛒</div>
+              <span class="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400">Consumer</span>
+            </div>
+            <div>
+              <h2 class="font-semibold">Grocery</h2>
+              <p class="mt-1 text-sm text-slate-400">Voice-first grocery shopping with same-day delivery.</p>
+            </div>
+            <span class="text-xs font-medium text-indigo-400">Browse products →</span>
+          </button>
+          <button onclick="navigate('chat')" class="group flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-6 text-left transition hover:border-indigo-500/50 hover:bg-slate-800/60">
+            <div class="flex items-start justify-between">
+              <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-800 text-xl">🏢</div>
+              <span class="rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-medium text-indigo-400">Enterprise</span>
+            </div>
+            <div>
+              <h2 class="font-semibold">B2B Procurement</h2>
+              <p class="mt-1 text-sm text-slate-400">AI-powered supplier discovery and RFQ management.</p>
+            </div>
+            <span class="text-xs font-medium text-indigo-400">Start conversation →</span>
+          </button>
+          <button onclick="navigate('chat')" class="group flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-6 text-left transition hover:border-indigo-500/50 hover:bg-slate-800/60">
+            <div class="flex items-start justify-between">
+              <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-800 text-xl">🩺</div>
+              <span class="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-400">Regulated</span>
+            </div>
+            <div>
+              <h2 class="font-semibold">Healthcare</h2>
+              <p class="mt-1 text-sm text-slate-400">Compliant prescription and OTC ordering.</p>
+            </div>
+            <span class="text-xs font-medium text-indigo-400">Start conversation →</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- SHOP -->
+      <div id="screen-shop" class="screen min-h-full px-4 py-8 sm:px-8">
+        <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 class="text-xl font-semibold">🛒 Fresh Groceries</h1>
+            <p class="mt-1 text-sm text-slate-400">Same-day delivery available in your area</p>
+          </div>
+          <input id="shop-search" oninput="renderProducts()" placeholder="Search products…" class="w-56 rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"/>
+        </div>
+        <div id="category-chips" class="mb-6 flex flex-wrap gap-2"></div>
+        <div id="product-grid" class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"></div>
+      </div>
+
+      <!-- CHAT -->
+      <div id="screen-chat" class="screen min-h-full flex flex-col px-4 py-8 sm:px-8">
+        <h1 class="mb-1 text-xl font-semibold">💬 Chat</h1>
+        <p class="mb-6 text-sm text-slate-400">Talk to your AI shopping assistant by voice or text</p>
+        <div id="chat-messages" class="mb-4 flex-1 space-y-4 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <div class="flex gap-3">
+            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-sm">🤖</div>
+            <div class="max-w-md rounded-2xl bg-slate-800 px-4 py-2.5 text-sm">Hi Amara, what can I help you find today?</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <button id="mic-btn" onclick="startListening()" class="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-white transition hover:bg-indigo-500">🎤</button>
+          <input id="chat-input" placeholder="Type a message…" class="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20" onkeydown="if(event.key==='Enter') sendChat()"/>
+          <button onclick="sendChat()" class="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500">Send</button>
+        </div>
+      </div>
+
+      <!-- CONVERSATIONS -->
+      <div id="screen-conversations" class="screen min-h-full px-4 py-8 sm:px-8">
+        <h1 class="mb-1 text-xl font-semibold">🗂️ Conversations</h1>
+        <p class="mb-6 text-sm text-slate-400">Your conversation history across all verticals</p>
+        <div class="space-y-3">
+          <div class="rounded-xl border border-slate-800 bg-slate-900 p-4 hover:border-slate-700 cursor-pointer" onclick="navigate('chat')">
+            <div class="flex items-center justify-between"><span class="text-sm font-medium">Grocery — weekly order</span><span class="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">Grocery</span></div>
+            <p class="mt-1 text-xs text-slate-500">"Add milk, eggs and bread to my cart" · 2 hours ago</p>
+          </div>
+          <div class="rounded-xl border border-slate-800 bg-slate-900 p-4 hover:border-slate-700 cursor-pointer" onclick="navigate('chat')">
+            <div class="flex items-center justify-between"><span class="text-sm font-medium">Office supplies RFQ</span><span class="rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] text-indigo-400">B2B</span></div>
+            <p class="mt-1 text-xs text-slate-500">"Find 3 suppliers for printer toner" · Yesterday</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ORDERS -->
+      <div id="screen-orders" class="screen min-h-full px-4 py-8 sm:px-8">
+        <h1 class="mb-1 text-xl font-semibold">📦 Orders</h1>
+        <p class="mb-6 text-sm text-slate-400">Track your purchases</p>
+        <div id="orders-list" class="space-y-3"></div>
+      </div>
+
+      <!-- CHECKOUT -->
+      <div id="screen-checkout" class="screen min-h-full px-4 py-8 sm:px-8">
+        <h1 class="mb-1 text-xl font-semibold">Checkout</h1>
+        <p class="mb-6 text-sm text-slate-400">Review your order and confirm delivery details</p>
+        <div class="grid gap-6 lg:grid-cols-3">
+          <div class="space-y-4 lg:col-span-2">
+            <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+              <h2 class="mb-4 text-sm font-semibold">Delivery address</h2>
+              <textarea id="checkout-address" rows="3" placeholder="Enter your delivery address…" class="w-full resize-none rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"></textarea>
+            </div>
+            <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+              <h2 class="mb-4 text-sm font-semibold">Items</h2>
+              <div id="checkout-items" class="space-y-3"></div>
+            </div>
+          </div>
+          <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+            <h2 class="mb-4 text-sm font-semibold">Order summary</h2>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between text-slate-400"><span>Subtotal</span><span id="checkout-subtotal" class="text-slate-200">R 0.00</span></div>
+              <div class="flex justify-between text-slate-400"><span>Delivery fee</span><span class="text-slate-200">R 25.00</span></div>
+            </div>
+            <div class="mt-4 flex justify-between border-t border-slate-800 pt-4 text-base font-semibold">
+              <span>Total</span><span id="checkout-total" class="text-indigo-400">R 0.00</span>
+            </div>
+            <button onclick="placeOrder()" class="mt-6 w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500">Place order</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div id="screen-settings" class="screen min-h-full px-4 py-8 sm:px-8">
+        <h1 class="mb-1 text-xl font-semibold">Settings</h1>
+        <p class="mb-6 text-sm text-slate-400">Manage your account and preferences</p>
+        <div class="max-w-lg space-y-6">
+          <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+            <h2 class="mb-4 text-sm font-semibold">Profile</h2>
+            <label class="mb-1.5 block text-xs font-medium text-slate-400">Display name</label>
+            <input value="Amara Okafor" class="w-full rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"/>
+          </div>
+          <div class="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+            <h2 class="mb-4 text-sm font-semibold">Sign out</h2>
+            <button onclick="logout()" class="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/20">Sign out of VocalMarket</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Floating cart button -->
+      <button onclick="toggleCart()" class="fixed bottom-6 right-6 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 transition hover:scale-105">
+        🛍️
+        <span id="cart-badge" class="hidden absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold">0</span>
+      </button>
+    </main>
+  </div>
+
+  <!-- Cart drawer -->
+  <div id="cart-overlay" class="cart-overlay fixed inset-0 z-40 bg-black/60" onclick="toggleCart()"></div>
+  <aside id="cart-drawer" class="cart-drawer fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l border-slate-800 bg-slate-900">
+    <div class="flex h-16 shrink-0 items-center justify-between border-b border-slate-800 px-5">
+      <h2 class="text-sm font-semibold">Shopping cart</h2>
+      <button onclick="toggleCart()" class="text-slate-500 hover:text-slate-300">✕</button>
+    </div>
+    <div id="cart-items" class="flex-1 overflow-y-auto p-4"></div>
+    <div id="cart-footer" class="hidden shrink-0 space-y-3 border-t border-slate-800 p-4">
+      <div class="flex items-center justify-between text-sm"><span class="text-slate-400">Subtotal</span><span id="cart-subtotal" class="text-lg font-semibold">R 0.00</span></div>
+      <button onclick="goToCheckout()" class="w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500">Checkout</button>
+    </div>
+  </aside>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container" class="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 space-y-2"></div>
+
+<script>
+const PRODUCTS = [
+  { id: "p1", name: "Full Cream Milk 2L", price: 32.99, category: "dairy", emoji: "🥛", inStock: true },
+  { id: "p2", name: "Free Range Eggs (18)", price: 54.99, category: "dairy", emoji: "🥚", inStock: true },
+  { id: "p3", name: "Cheddar Cheese Block", price: 89.99, category: "dairy", emoji: "🧀", inStock: true },
+  { id: "p4", name: "Avocados", price: 24.99, category: "produce", emoji: "🥑", inStock: true },
+  { id: "p5", name: "Bananas", price: 19.99, category: "produce", emoji: "🍌", inStock: true },
+  { id: "p6", name: "Tomatoes", price: 22.99, category: "produce", emoji: "🍅", inStock: false },
+  { id: "p7", name: "Sourdough Loaf", price: 38.50, category: "bakery", emoji: "🍞", inStock: true },
+  { id: "p8", name: "Croissants", price: 45.00, category: "bakery", emoji: "🥐", inStock: true },
+  { id: "p9", name: "Chicken Breasts", price: 109.99, category: "meat", emoji: "🍗", inStock: true },
+  { id: "p10", name: "Beef Mince", price: 129.99, category: "meat", emoji: "🥩", inStock: true },
+  { id: "p11", name: "Basmati Rice", price: 64.99, category: "pantry", emoji: "🍚", inStock: true },
+  { id: "p12", name: "Olive Oil", price: 79.99, category: "pantry", emoji: "🫒", inStock: true },
+];
+const CATEGORIES = [
+  { id: "all", label: "All", icon: "🛍️" },
+  { id: "dairy", label: "Dairy", icon: "🥛" },
+  { id: "produce", label: "Produce", icon: "🥦" },
+  { id: "bakery", label: "Bakery", icon: "🍞" },
+  { id: "meat", label: "Meat", icon: "🥩" },
+  { id: "pantry", label: "Pantry", icon: "🥫" },
+];
+const ORDERS = [
+  { id: "ORD-1042", status: "Delivered", total: 312.50, date: "2 days ago" },
+  { id: "ORD-1038", status: "Shipped", total: 89.00, date: "5 days ago" },
+];
+
+let cart = JSON.parse(localStorage.getItem("mockCart") || "{}");
+let activeCategory = "all";
+
+function persistCart() { localStorage.setItem("mockCart", JSON.stringify(cart)); }
+
+function login() {
+  document.getElementById("screen-login").classList.remove("active");
+  document.getElementById("app-shell").classList.remove("hidden");
+  renderCategoryChips();
+  renderProducts();
+  renderOrders();
+  renderCart();
+  navigate("home");
+}
+
+function logout() {
+  document.getElementById("app-shell").classList.add("hidden");
+  document.getElementById("screen-login").classList.add("active");
+}
+
+function navigate(name) {
+  document.querySelectorAll(".main-screen-container .screen, main > .screen").forEach(el => el.classList.remove("active"));
+  document.querySelectorAll("main .screen").forEach(el => el.classList.remove("active"));
+  document.getElementById("screen-" + name).classList.add("active");
+  document.querySelectorAll(".nav-link").forEach(el => el.classList.remove("active"));
+  const navEl = document.querySelector('.nav-link[data-nav="' + name + '"]');
+  if (navEl) navEl.classList.add("active");
+}
+
+function renderCategoryChips() {
+  const el = document.getElementById("category-chips");
+  el.innerHTML = CATEGORIES.map(c => `
+    <button onclick="setCategory('${c.id}')" data-cat="${c.id}"
+      class="cat-chip rounded-full border px-3.5 py-1.5 text-xs font-medium transition ${c.id === activeCategory ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600'}">
+      ${c.icon} ${c.label}
+    </button>
+  `).join("");
+}
+
+function setCategory(id) {
+  activeCategory = id;
+  renderCategoryChips();
+  renderProducts();
+}
+
+function renderProducts() {
+  const search = (document.getElementById("shop-search").value || "").toLowerCase();
+  const grid = document.getElementById("product-grid");
+  const filtered = PRODUCTS.filter(p =>
+    (activeCategory === "all" || p.category === activeCategory) &&
+    p.name.toLowerCase().includes(search)
+  );
+  grid.innerHTML = filtered.map(p => {
+    const qty = cart[p.id]?.qty || 0;
+    return `
+    <div class="group flex flex-col overflow-hidden rounded-xl border border-slate-800 bg-slate-900 transition hover:border-indigo-500/40">
+      <div class="relative flex aspect-square items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900 text-5xl">
+        ${p.emoji}
+        <span class="absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-medium ${p.inStock ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-400' : 'border border-red-500/20 bg-red-500/10 text-red-400'}">${p.inStock ? 'In stock' : 'Out of stock'}</span>
+      </div>
+      <div class="flex flex-1 flex-col gap-2 p-3">
+        <p class="text-sm font-medium leading-snug">${p.name}</p>
+        <p class="text-base font-semibold text-indigo-400">R ${p.price.toFixed(2)}</p>
+        <div class="mt-auto pt-1">
+          ${qty === 0
+            ? `<button onclick="addToCart('${p.id}')" ${!p.inStock ? 'disabled' : ''} class="w-full rounded-lg bg-indigo-600 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40">Add to cart</button>`
+            : `<div class="flex w-full items-center justify-between rounded-lg border border-slate-700 bg-slate-800 px-2 py-1">
+                <button onclick="changeQty('${p.id}', -1)" class="px-1.5 text-slate-300 hover:text-indigo-400">−</button>
+                <span class="text-xs font-medium">${qty}</span>
+                <button onclick="changeQty('${p.id}', 1)" class="px-1.5 text-slate-300 hover:text-indigo-400">+</button>
+              </div>`
+          }
+        </div>
+      </div>
+    </div>`;
+  }).join("") || `<div class="col-span-full rounded-2xl border border-slate-800 bg-slate-900 py-16 text-center"><p class="text-sm font-medium text-slate-300">No products found</p></div>`;
+}
+
+function addToCart(id) {
+  const p = PRODUCTS.find(x => x.id === id);
+  cart[id] = cart[id] ? { ...cart[id], qty: cart[id].qty + 1 } : { product: p, qty: 1 };
+  persistCart();
+  renderProducts();
+  renderCart();
+  showToast(`Added ${p.name} to cart`, "success");
+}
+
+function changeQty(id, delta) {
+  if (!cart[id]) return;
+  cart[id].qty += delta;
+  if (cart[id].qty <= 0) delete cart[id];
+  persistCart();
+  renderProducts();
+  renderCart();
+}
+
+function cartCount() { return Object.values(cart).reduce((s, i) => s + i.qty, 0); }
+function cartSubtotal() { return Object.values(cart).reduce((s, i) => s + i.product.price * i.qty, 0); }
+
+function renderCart() {
+  const count = cartCount();
+  const badge = document.getElementById("cart-badge");
+  badge.textContent = count;
+  badge.classList.toggle("hidden", count === 0);
+
+  const itemsEl = document.getElementById("cart-items");
+  const footerEl = document.getElementById("cart-footer");
+  const entries = Object.values(cart);
+  if (entries.length === 0) {
+    itemsEl.innerHTML = `<div class="flex h-full flex-col items-center justify-center text-center"><p class="text-sm text-slate-500">Your cart is empty</p></div>`;
+    footerEl.classList.add("hidden");
+    return;
+  }
+  footerEl.classList.remove("hidden");
+  itemsEl.innerHTML = entries.map(({ product, qty }) => `
+    <div class="mb-3 flex gap-3 rounded-xl border border-slate-800 bg-slate-800/50 p-3">
+      <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-2xl">${product.emoji}</div>
+      <div class="min-w-0 flex-1">
+        <p class="truncate text-xs font-medium">${product.name}</p>
+        <p class="mt-0.5 text-xs font-semibold text-indigo-400">R ${product.price.toFixed(2)}</p>
+        <div class="mt-2 flex items-center gap-2">
+          <button onclick="changeQty('${product.id}', -1)" class="rounded border border-slate-700 px-1.5 text-xs hover:text-indigo-400">−</button>
+          <span class="text-xs">${qty}</span>
+          <button onclick="changeQty('${product.id}', 1)" class="rounded border border-slate-700 px-1.5 text-xs hover:text-indigo-400">+</button>
+        </div>
+      </div>
+    </div>
+  `).join("");
+  document.getElementById("cart-subtotal").textContent = "R " + cartSubtotal().toFixed(2);
+}
+
+function toggleCart() {
+  document.getElementById("cart-drawer").classList.toggle("open");
+  document.getElementById("cart-overlay").classList.toggle("open");
+}
+
+function goToCheckout() {
+  toggleCart();
+  renderCheckout();
+  navigate("checkout");
+}
+
+function renderCheckout() {
+  const entries = Object.values(cart);
+  document.getElementById("checkout-items").innerHTML = entries.map(({ product, qty }) => `
+    <div class="flex items-center gap-3">
+      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-xl">${product.emoji}</div>
+      <div class="min-w-0 flex-1"><p class="truncate text-sm">${product.name}</p><p class="text-xs text-slate-500">×${qty}</p></div>
+      <p class="text-sm font-medium text-slate-300">R ${(product.price * qty).toFixed(2)}</p>
+    </div>
+  `).join("");
+  const subtotal = cartSubtotal();
+  document.getElementById("checkout-subtotal").textContent = "R " + subtotal.toFixed(2);
+  document.getElementById("checkout-total").textContent = "R " + (subtotal + (subtotal > 0 ? 25 : 0)).toFixed(2);
+}
+
+function placeOrder() {
+  const address = document.getElementById("checkout-address").value;
+  if (!address.trim()) { showToast("Please enter a delivery address", "error"); return; }
+  cart = {};
+  persistCart();
+  renderProducts();
+  renderCart();
+  showToast("Order placed! You'll receive updates via voice or chat.", "success");
+  navigate("orders");
+}
+
+function renderOrders() {
+  document.getElementById("orders-list").innerHTML = ORDERS.map(o => `
+    <div class="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 p-4">
+      <div>
+        <p class="text-sm font-medium">${o.id}</p>
+        <p class="text-xs text-slate-500">${o.date}</p>
+      </div>
+      <div class="text-right">
+        <p class="text-sm font-semibold text-indigo-400">R ${o.total.toFixed(2)}</p>
+        <span class="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">${o.status}</span>
+      </div>
+    </div>
+  `).join("");
+}
+
+function sendChat() {
+  const input = document.getElementById("chat-input");
+  const text = input.value.trim();
+  if (!text) return;
+  appendChat(text, "user");
+  input.value = "";
+  setTimeout(() => appendChat("Got it — I found a few matching products in Shop. Want me to add them to your cart?", "assistant"), 600);
+}
+
+function startListening() {
+  const btn = document.getElementById("mic-btn");
+  btn.classList.add("listening-ring");
+  appendChat("🎙️ Listening…", "user-temp");
+  setTimeout(() => {
+    btn.classList.remove("listening-ring");
+    document.querySelectorAll(".chat-temp").forEach(el => el.remove());
+    appendChat("Add milk and eggs to my cart", "user");
+    setTimeout(() => appendChat("Added Full Cream Milk and Free Range Eggs to your cart ✅", "assistant"), 700);
+  }, 2200);
+}
+
+function appendChat(text, role) {
+  const container = document.getElementById("chat-messages");
+  const isUser = role === "user" || role === "user-temp";
+  const wrapper = document.createElement("div");
+  if (role === "user-temp") wrapper.classList.add("chat-temp");
+  wrapper.className += " flex gap-3" + (isUser ? " justify-end" : "");
+  wrapper.innerHTML = isUser
+    ? `<div class="max-w-md rounded-2xl bg-indigo-600 px-4 py-2.5 text-sm text-white">${text}</div>`
+    : `<div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-sm">🤖</div><div class="max-w-md rounded-2xl bg-slate-800 px-4 py-2.5 text-sm">${text}</div>`;
+  container.appendChild(wrapper);
+  container.scrollTop = container.scrollHeight;
+}
+
+function showToast(message, type) {
+  const el = document.createElement("div");
+  el.className = `toast rounded-lg border px-4 py-2.5 text-sm shadow-lg ${type === "error" ? "border-red-500/30 bg-red-950 text-red-300" : "border-emerald-500/30 bg-emerald-950 text-emerald-300"}`;
+  el.textContent = message;
+  document.getElementById("toast-container").appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+</script>
+</body>
+</html>
