@@ -25,6 +25,7 @@ class GatewaySettings(BaseSettings):
     voice_service_url: str = "http://voice:8003"
     orchestrator_url: str = "http://ai_orchestrator:8002"
     enthusiast_url: str = "http://api:8000"
+    payments_service_url: str = "http://payments:8001"
     redis_url: str = "redis://redis:6379/0"
     # Required — no default. Service refuses to start if unset.
     jwt_secret: str = ""
@@ -108,6 +109,46 @@ async def login(req: LoginRequest):
     )
     resp.raise_for_status()
     return resp.json()
+
+
+@app.api_route(
+    "/v1/payments/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+)
+async def proxy_to_payments(
+    path: str,
+    request: Request,
+    user: dict = Depends(verify_token),
+):
+    """
+    Authenticated proxy to the payments service.
+
+    Registered BEFORE the /v1/{vertical}/{path:path} catch-all below —
+    Starlette matches routes in registration order, so this must come first
+    or "/v1/payments/..." would be swallowed by the vertical proxy with
+    vertical="payments".
+
+    Keeps ForgePay credentials and the payments service itself off the public
+    internet — clients only ever see the gateway, which attaches the caller's
+    identity so payment sessions can be tied back to a user.
+    """
+    user_id = str(user.get("id", user.get("sub", "")))
+    body = await request.body()
+
+    resp = await _upstream.request(
+        method=request.method,
+        url=f"{_settings.payments_service_url}/payments/{path}",
+        content=body,
+        headers={
+            "Content-Type": request.headers.get("Content-Type", "application/json"),
+            "X-User-Id": user_id,
+        },
+    )
+    return StreamingResponse(
+        content=resp.aiter_bytes(),
+        status_code=resp.status_code,
+        media_type=resp.headers.get("content-type"),
+    )
 
 
 @app.api_route(

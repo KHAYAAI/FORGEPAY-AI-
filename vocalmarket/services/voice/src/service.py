@@ -36,6 +36,15 @@ async def voice_session(websocket: WebSocket, vertical: str, user_id: str):
             # Receive audio chunk (binary) or control message (text)
             message = await websocket.receive()
 
+            # Starlette's low-level receive() returns the disconnect event as
+            # a plain message rather than raising WebSocketDisconnect — that
+            # only happens on the receive_text()/receive_bytes()/receive_json()
+            # convenience wrappers. Without this check, the next receive()
+            # call on an already-disconnected socket raises RuntimeError on
+            # every normal client disconnect.
+            if message["type"] == "websocket.disconnect":
+                break
+
             if "bytes" in message:
                 audio_bytes = message["bytes"]
 

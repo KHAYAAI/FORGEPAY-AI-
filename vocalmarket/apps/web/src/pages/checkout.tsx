@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { useApp } from "@/contexts/AppContext";
+import { ApiError, initiatePayment } from "@/lib/api";
 
 export default function CheckoutPage() {
   const { items, subtotal, currency, clearCart } = useCart();
@@ -19,11 +20,52 @@ export default function CheckoutPage() {
       return;
     }
     setPlacing(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    clearCart();
-    toast("Order placed! You'll receive updates via voice or chat.", "success");
-    navigate("/orders");
-    setPlacing(false);
+
+    // Client-generated reference until orders are persisted via Medusa —
+    // ForgePay's payment session is real; full order capture happens in the
+    // ForgePay webhook once the commerce integration lands (see checkout notes).
+    const orderId = `web_${Date.now()}`;
+
+    try {
+      const session = await initiatePayment({
+        orderId,
+        amount: total,
+        currency: currency === "R" ? "ZAR" : (currency as "ZAR" | "USDC" | "USDT"),
+        method: "card",
+        returnUrl: `${window.location.origin}/orders`,
+        cancelUrl: `${window.location.origin}/checkout`,
+        items,
+      });
+
+      if (session.payment_url) {
+        // Real ForgePay hosted checkout — cart clears once the webhook confirms payment.
+        window.location.href = session.payment_url;
+        return;
+      }
+      if (session.wallet_address) {
+        toast(`Send payment to ${session.wallet_address} to complete your order`, "success");
+        return;
+      }
+
+      clearCart();
+      toast("Order placed! You'll receive updates via voice or chat.", "success");
+      navigate("/orders");
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast(err.message || "Payment could not be started", "error");
+      } else {
+        // Payments service/gateway unreachable (e.g. local dev without the full
+        // microservices stack running) — fall back to a simulated confirmation
+        // so the flow is still demoable, same pattern as the Orders page's
+        // MOCK_ORDERS fallback.
+        await new Promise((r) => setTimeout(r, 800));
+        clearCart();
+        toast("Order placed (demo mode — payments service unreachable)", "success");
+        navigate("/orders");
+      }
+    } finally {
+      setPlacing(false);
+    }
   }
 
   if (items.length === 0) {

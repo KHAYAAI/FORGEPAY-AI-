@@ -49,7 +49,11 @@ _settings = AnalyticsSettings()
 # ─── Database (read-only mirror of intelligence service tables) ───────────────
 
 class Base(DeclarativeBase):
-    pass
+    # Columns below are declared as `Any = mapped_column(...)` rather than
+    # `Mapped[...]` — SQLAlchemy 2.0's declarative mapper rejects that without
+    # this flag (MappedAnnotationError), which otherwise breaks import of
+    # this module entirely under the sqlalchemy = "^2.0" pin in pyproject.toml.
+    __allow_unmapped__ = True
 
 
 class _SupplierMetric(Base):

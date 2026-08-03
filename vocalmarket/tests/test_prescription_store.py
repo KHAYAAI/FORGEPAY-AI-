@@ -6,9 +6,10 @@ Uses an in-memory SQLite database to avoid requiring a real PostgreSQL instance.
 
 from __future__ import annotations
 
-import asyncio
 from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 def _fernet_key() -> str:
@@ -72,13 +73,10 @@ class TestPrescriptionVerification:
         mock_result = MagicMock()
         mock_result.scalars.return_value = mock_scalars
 
-        mock_session = MagicMock()
-        mock_session.execute = asyncio.coroutine(lambda _: mock_result) if False else MagicMock(
-            return_value=asyncio.coroutine(lambda: mock_result)()
-        )
-
         # Use AsyncMock for the async context manager
         from unittest.mock import AsyncMock
+
+        mock_session = MagicMock()
         mock_session_cm = AsyncMock()
         mock_session_cm.__aenter__ = AsyncMock(return_value=mock_session)
         mock_session_cm.__aexit__ = AsyncMock(return_value=False)

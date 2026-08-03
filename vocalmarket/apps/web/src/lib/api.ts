@@ -1,7 +1,8 @@
 import { clearAuth, getToken } from "./auth";
-import type { AuthUser, Conversation, Message, Order, Vertical } from "@/types";
+import type { AuthUser, CartItem, Conversation, Message, Order, Vertical } from "@/types";
 
-const API_BASE = (import.meta as { env: Record<string, string> }).env.VITE_API_BASE ?? "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000";
+const GATEWAY_BASE = import.meta.env.VITE_GATEWAY_BASE ?? "http://localhost:8080";
 
 export class ApiError extends Error {
   constructor(
@@ -112,4 +113,75 @@ export async function updateProfile(data: Partial<AuthUser>): Promise<AuthUser> 
     method: "PATCH",
     body: JSON.stringify(data),
   });
+}
+
+// ── Payments (via API Gateway → payments service → ForgePay) ────────────────
+//
+// Routed through the gateway rather than called directly so the payments
+// service and ForgePay credentials never need to be reachable from the
+// browser. The gateway accepts the same DRF token the web app already holds:
+// it tries to decode it as a JWT first, and falls back to verifying it
+// against Enthusiast's /api/users/me/ when that fails (see
+// api_gateway/src/main.py verify_token()), so no separate login is required.
+
+async function gatewayRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...((options.headers as Record<string, string>) ?? {}),
+  };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${GATEWAY_BASE}${path}`, { ...options, headers });
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as Record<string, string>;
+    throw new ApiError(res.status, body["detail"] ?? `Payment request failed: ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+export type PaymentMethod = "card" | "stablecoin" | "x402";
+
+export interface PaymentSession {
+  session_id: string;
+  payment_url: string;
+  wallet_address: string | null;
+  chain_id: number | null;
+  expires_at: number | null;
+  method: PaymentMethod;
+}
+
+export async function initiatePayment(params: {
+  orderId: string;
+  amount: number;
+  currency?: "ZAR" | "USDC" | "USDT";
+  method?: PaymentMethod;
+  returnUrl?: string;
+  cancelUrl?: string;
+  items: CartItem[];
+}): Promise<PaymentSession> {
+  return gatewayRequest<PaymentSession>("/v1/payments/initiate", {
+    method: "POST",
+    body: JSON.stringify({
+      order_id: params.orderId,
+      amount: params.amount,
+      currency: params.currency ?? "ZAR",
+      method: params.method ?? "card",
+      return_url: params.returnUrl ?? "",
+      cancel_url: params.cancelUrl ?? "",
+      metadata: {
+        items: params.items.map(({ product, quantity }) => ({
+          product_id: product.id,
+          name: product.name,
+          quantity,
+          unit_price: product.price,
+        })),
+      },
+    }),
+  });
+}
+
+export async function getPaymentSession(sessionId: string): Promise<Record<string, unknown>> {
+  return gatewayRequest(`/v1/payments/sessions/${sessionId}`);
 }

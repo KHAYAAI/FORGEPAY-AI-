@@ -1,0 +1,86 @@
+name: VocalMarket tests
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'vocalmarket/**'
+      - '.github/workflows/vocalmarket-tests.yml'
+  pull_request:
+    paths:
+      - 'vocalmarket/**'
+      - '.github/workflows/vocalmarket-tests.yml'
+
+jobs:
+  python-services:
+    name: Python services (pytest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      # The vocalmarket/services/* packages are independently deployable
+      # (each has its own pyproject.toml + Dockerfile), but their tests
+      # cross-import between them (e.g. vocalmarket/tests/ exercises the
+      # payments and healthcare modules together) and there's no monorepo
+      # workspace tool wiring the poetry projects together yet. Until that
+      # lands, install the union of their dependencies into one venv —
+      # this mirrors how the suite is actually run today.
+      - name: Install dependencies
+        run: |
+          pip install \
+            fastapi uvicorn[standard] httpx "pyjwt[crypto]" pydantic-settings pydantic \
+            opentelemetry-sdk opentelemetry-instrumentation-fastapi websockets \
+            "sqlalchemy[asyncio]" asyncpg pgvector cryptography \
+            langchain langchain-core langchain-openai \
+            python-multipart redis \
+            pytest pytest-asyncio
+
+      - name: Run tests
+        run: |
+          pytest \
+            vocalmarket/tests \
+            vocalmarket/services/messaging/tests \
+            vocalmarket/services/ai_orchestrator/tests \
+            vocalmarket/services/api_gateway/tests \
+            vocalmarket/services/voice/tests \
+            vocalmarket/services/intelligence/tests \
+            vocalmarket/services/analytics/tests \
+            -v
+
+  web:
+    name: Web app (typecheck + vitest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vocalmarket/apps/web
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check
+        run: npx tsc -b --noEmit
+
+      - name: Run tests
+        run: pnpm test

@@ -54,7 +54,11 @@ export class VoiceClient {
   async connect(): Promise<void> {
     this.setStatus("connecting");
 
-    const url = `${WS_BASE}/ws/voice/${this.vertical}/${this.userId}`;
+    // sessionId ties this voice session back to the originating conversation
+    // (e.g. one already opened via text chat) so a future server-side change
+    // can merge voice and text turns into the same thread instead of the
+    // service minting an unrelated conversation_id per voice connection.
+    const url = `${WS_BASE}/ws/voice/${this.vertical}/${this.userId}?session_id=${encodeURIComponent(this.sessionId)}`;
     this.ws = new WebSocket(url);
     this.ws.binaryType = "arraybuffer";
 

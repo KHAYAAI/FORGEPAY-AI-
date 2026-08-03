@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime
+from typing import Any
 
 from cryptography.fernet import Fernet
 from pydantic import BaseModel
@@ -20,7 +21,6 @@ from pydantic_settings import BaseSettings
 from sqlalchemy import String, Text, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, mapped_column
-from sqlalchemy.types import Any
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,11 @@ _settings = PrescriptionSettings()
 
 
 class Base(DeclarativeBase):
-    pass
+    # Columns below are declared as `Any = mapped_column(...)` rather than
+    # `Mapped[...]` — SQLAlchemy 2.0's declarative mapper rejects that without
+    # this flag (MappedAnnotationError), which otherwise breaks import of
+    # this module entirely under the sqlalchemy = "^2.0" pin in pyproject.toml.
+    __allow_unmapped__ = True
 
 
 class Prescription(Base):
